@@ -1,9 +1,9 @@
-import logo from '../logo.svg';
 import '../App.css';
-import { Card, Button, Col, Row, Container } from 'react-bootstrap';
+import { Card, Button, Col, Row } from 'react-bootstrap';
 import React from 'react';
 
 export default class Main extends React.Component {
+  
   render() {
     return (
     <div className="App">

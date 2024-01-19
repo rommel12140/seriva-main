@@ -1,6 +1,4 @@
-import logo from './logo.svg';
 import './App.css';
-import Main from './Components/main';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
 import OrderSlipsSummary from './Components/OrderSlips/orderslipssummary';
@@ -14,8 +12,6 @@ function Routing() {
       </Routes>
     </BrowserRouter>
   )
-  
-  ;
 }
 
 export default Routing;
