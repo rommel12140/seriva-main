@@ -1,8 +1,12 @@
 import React from 'react';
 import '../../App.css';
-import { Card, Button, Col, Row, Modal, Alert, Badge, ListGroup, Container } from 'react-bootstrap';
+import { Card, Button, Col, Row, Modal, Alert, Badge, ListGroup, Container, Form, Dropdown, InputGroup, DropdownButton, ButtonGroup, Accordion } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
-import { dateConvert, tConvert, tConvertHM } from '../Utilities/timeconvert';
+import { arrayToObject, dateConvert, getStringDate, tConvert, tConvertHM, tSQLConvert } from '../Utilities/timeconvert';
+import { CAT_CAFE, getNowDate, menu, tables, taker } from '../Utilities/data';
+import { addOrderSlip, billedAllOrders, cancelOrderFromOS, cancelOrderSlip, cancelReservation, getAvailableMenu, getEmployees, getLastOS, getMenu, getOpenOrderSlips, getOrderSlips, getReservations, getReservationsIncoming, getServers, getTables, updateOSReservation, updateOSTable, updateOrderStatusDone } from '../Utilities/requests';
+import { toWords } from 'number-to-words';
+import { format } from 'date-fns';
 
 const SAMPLE_FOOD = [
   {
@@ -23,66 +27,254 @@ const SAMPLE_FOOD = [
   },
 ]
 
-const SAMPLE_ORDER = [
-  {
-    item: SAMPLE_FOOD[0],
-    cancelled: false,
-    done_time: "",
-  },
-  {
-    item: SAMPLE_FOOD[1],
-    cancelled: false,
-    done_time: "test",
-  },
-]
-const SAMPLE_ORDER_SLIPS = {
-  1: {
-    os_no: 1,
-    datetime: new Date("1/19/24 21:22:44"),
-    taker: "Gen",
-    orders: SAMPLE_ORDER,
-    table: "Dining 1",
-    requests: "Allergic to shrimps",
-    done_time: "",
-  },
-  2: {
-    os_no: 2,
-    datetime: new Date("1/19/24 20:24:44"),
-    taker: "Gen",
-    orders: SAMPLE_ORDER,
-    table: "Dining 2",
-    requests: "Allergic to shrimps",
-    done_time: "test",
-}}
+const SAMPLE_ORDER = JSON.stringify([{item: SAMPLE_FOOD[0],cancelled: false,returned: false,donetime: "0000-00-00 00:00:00",chef_id: 0,quantity: 1,},{item: SAMPLE_FOOD[1],cancelled: false,returned: false,donetime: "0000-00-00 00:00:00",chef_id: 0,quantity: 1,},])
+
+const PLACEHOLDER_OS = {
+  os_no: null,
+  dtime: new Date(""),
+  taker: null,
+  orders: SAMPLE_ORDER,
+  table: null,
+  requests: null,
+  donetime: null,
+  cancelled: "1",
+}
+
+const ORDERSLIPDEFAULT = [{
+  os_no: "null",
+  dtime: new Date(),
+  taker: 0,
+  orders: SAMPLE_ORDER,
+  table_no: 0,
+  requests: "",
+  donetime: "0000-00-00 00:00:00",
+  cancelled: true,
+}]
+
 
 class OrderSlipsSummaryN extends React.Component  {
 
   state = {
     currenttime12H: 0,
     currenttime: 0,
-    timeordered: new Date().getTime(),
     modalOSShow: false,
-    selectedorderslip: {
-      os_no: -1,
-      datetime: new Date(),
-      taker: "",
-      orders: [],
-      table: "",
-      requests: "",
-      done_time: "",
-    },
-    orderslips: SAMPLE_ORDER_SLIPS,
-    food: SAMPLE_FOOD,
+    modalNewOSShow: false,
+    modalNewMenuShow: false,
+    modalNewOSQty: false,
+    modalConfirmation: false,
+    selectedorderslip: 0,
+    newOSTable: 0,
+    newOSTaker: 0,
+    orderslips: ORDERSLIPDEFAULT,
+    food: menu,
+    numberOfRows: 3,
+    neworderslipnote: "",
+    newOrderSlip: {},
+    orders: [],
+    currentorder: {},
+    tables:tables,
+    takers: taker,
+    reservations: [],
+    selectedIndex: -1,
+    modalResShow: false,
+    modalOrderConfirmation: false,
+    selectedorder: {}
   }
   
   componentDidMount() {
     this.getCurrentTime()
+    
+    getServers((responseEmployees) => {
+      getTables((responseTables) => {
+        getAvailableMenu((responseFood) => {
+
+          this.setState({
+            food: responseFood.response,
+            tables: responseTables.response,
+            takers: arrayToObject(responseEmployees.response)
+          },() => {
+            this.loadOrderSlips()
+            this.loadReservations()
+          })
+        })
+      })
+    })
+  }
+
+  loadReservations() {
+    getReservationsIncoming((responseRes) => {
+      const resp = (responseRes.response.length !== 0 ? responseRes.response: [])
+      this.setState({
+        reservations: resp,
+      }, () => {
+        setTimeout(() => this.loadReservations(), 15000)
+      })
+    })
+  }
+
+  loadOrderSlips() {
+    getOpenOrderSlips((responseOS) => {
+      const resp = (responseOS.response.length !== 0 ? responseOS.response: [PLACEHOLDER_OS])
+      this.setState({
+        orderslips: resp,
+        modalOSShow: (this.state.orderslips[this.state.selectedorderslip].cancelled === 1 || this.state.orderslips[this.state.selectedorderslip].cancelled === "1") ? false: this.state.modalOSShow,
+      }, () => {
+        setTimeout(() => this.loadOrderSlips(), 1000)
+        
+      })
+    })
+  }
+
+  modalResToggle = () => {
+    this.setState({
+      modalResShow: this.state.modalResShow ? false: true,
+    })
   }
 
   modalOSToggle = () => {
     this.setState({
       modalOSShow: this.state.modalOSShow ? false: true,
     })
+  }
+
+  modalNewOSToggle = () => {
+    this.setState({
+      modalNewOSShow: this.state.modalNewOSShow ? false: true,
+      newOSTaker: "",
+      neworderslipnote: "",
+      newOSTable: {},
+      orders: [],
+      currentorder: {},
+    })
+  }
+
+  modalNewMenuShow() {
+    this.setState({
+      modalNewMenuShow: this.state.modalNewMenuShow ? false: true,
+      modalNewOSShow: this.state.modalNewOSShow ? false: true,
+    })
+  }
+
+  modalNewOSQtySet(item_index) {
+    this.setState({
+      modalNewMenuShow: this.state.modalNewMenuShow ? false: true,
+      modalNewOSQty: this.state.modalNewOSQty ? false: true,
+      currentorder: {
+        item: this.state.food[item_index],
+        cancelled: 0,
+        returned: 0,
+        donetime: "0000-00-00 00:00:00",
+        quantity: 1,
+        chef_id: null,
+      }
+    })
+  }
+
+  modalToggleSetOSQty() {
+    this.setState({
+      modalNewMenuShow: this.state.modalNewMenuShow ? false: true,
+      modalNewOSQty: this.state.modalNewOSQty ? false: true,
+    })
+  }
+
+  modalDoneConfirmationToggle = () => {
+    this.setState({
+      modalConfirmation: this.state.modalConfirmation ? false: true,
+      modalOSShow: false,
+    })
+  }
+
+  cancelPromptReservation(res) {
+    const selection = prompt("Save? Type 'Y' or 'y' to continue")
+    if(selection === "Y" || selection === "y") {
+      this.modalResToggle()
+      cancelReservation(res, (message) => {
+        this.setState({
+          selectedIndex: -1,
+        })
+        getReservations((responseRes) => {
+          this.setState({
+            reservations: responseRes.response,
+          })
+        })
+      })
+    }
+  }
+
+  saveNewOrderslip() {
+    const selection = prompt("Save? Type 'Y' or 'y' to continue")
+    if(selection === "Y" || selection === "y") {
+      if(this.state.reservations[this.state.selectedIndex].orders !== undefined && JSON.parse(this.state.reservations[this.state.selectedIndex].orders).length > 0) {
+        const newOS = {
+          os_no: 0,
+          dtime: new Date(),
+          taker: this.state.reservations[this.state.selectedIndex].taker,
+          orders: JSON.parse(this.state.reservations[this.state.selectedIndex].orders),
+          table: this.state.reservations[this.state.selectedIndex].table_no,
+          requests: this.state.reservations[this.state.selectedIndex].notes,
+          donetime: "0000-00-00 00:00:00",
+          cancelled: false,
+          billed: "0000-00-00 00:00:00",
+          numberOfRows: 3,
+        }
+        
+          getLastOS((responseLastOS) => {
+            const newos = Number(responseLastOS.response[0].os_no) + 1
+            addOrderSlip(newOS,(response) => {
+              updateOSReservation(this.state.reservations[this.state.selectedIndex].res_no, newos,(responseOS) => {
+                this.setState({
+                  selectedIndex: -1,
+                }, () => {
+                  this.modalResToggle()  
+                })
+              })
+            })
+          })
+        
+        
+      } else {
+        updateOSReservation(this.state.reservations[this.state.selectedIndex].res_no, -1,(responseOS) => {
+          this.setState({
+            selectedIndex: -1,
+          }, () => {
+            this.modalResToggle()
+            getReservationsIncoming((responseRes) => {
+              const resp = (responseRes.response.length !== 0 ? responseRes.response: [])
+              this.setState({
+                reservations: resp,
+              })
+            })
+          })
+        })
+      }
+    }
+  }
+
+  doneOrder() {
+    billedAllOrders(this.state.orderslips[this.state.selectedorderslip], () => {
+      getOrderSlips((responseOS) => {
+        this.setState({
+          orderslips: responseOS.response,
+          selectedorderslip: 0,
+        }, () => {
+          
+        })
+      })
+    })
+    this.modalDoneConfirmationToggle()
+  }
+
+  doneKitchenOrder(os,index) {
+      updateOrderStatusDone(os,index, () => {
+        getOrderSlips((responseOS) => {
+          this.setState({
+            orderslips: responseOS.response,
+          }, () => {
+            
+          })
+        })
+      })
+      this.modalOrderConfirmationToggle()
   }
 
   getCurrentTime = () => {
@@ -99,59 +291,256 @@ class OrderSlipsSummaryN extends React.Component  {
   }
 
   remainingTime = (timeIn, timeSch) => {
+    const nTimeIn = new Date(timeIn)
     const currentTime = new Date()
-    const time = new Date(timeIn)
+    const time = new Date(nTimeIn.getTime()+(timeSch*60000))
     const timeRemaining = time;
-    timeRemaining.setMinutes(time.getMinutes() + timeSch)
-
     const result = (timeRemaining.getTime() - currentTime.getTime())/60000
     return result <= 0 ? 0: result;
-}
+  }
+
+  cancelAll = (os) => {
+    const selection = prompt("Save? Type 'Y' or 'y' to continue")
+    if(selection === "Y" || selection === "y") {
+      this.modalOSToggle()
+      cancelOrderSlip(os, (message) => {
+        
+        this.setState({
+          selectedorderslip: 0,
+        })
+        getOrderSlips((responseOS) => {
+          this.setState({
+            orderslips: responseOS.response,
+          })
+        })
+      })
+    }
+  }
+
+  cancelOrder = (os, index) => {
+    const selection = prompt("Save? Type 'Y' or 'y' to continue")
+    if(selection === "Y" || selection === "y") {
+      cancelOrderFromOS(os,index, (message) => {
+        
+        getOrderSlips((responseOS) => {
+          this.setState({
+            orderslips: responseOS.response,
+          })
+        })
+      })
+    }
+  }
+
+  numberOfRowsCalc = (value) => {
+    var finalVal = (value > 40 ? 40: (value < this.state.orders.length ? this.state.orders.length: value < 1 ? 1:Number(value)))
+    this.setState({numberOfRows: finalVal})
+  }
+
+  checkInvalid(data) {
+    if(data === undefined || 
+      data === null || 
+      data == {} || 
+      data == [] ||
+      data.length === 0 ||
+      Object.keys(data).length === 0
+      ) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  saveNewOS() {
+    if (this.checkInvalid(this.state.newOSTable) ||
+      this.checkInvalid(this.state.newOSTaker) ||
+      this.checkInvalid(this.state.orders)
+      ) {
+        alert("Please input all fields")
+    } else {
+      const newOS = {
+        os_no: null,
+        dtime: new Date(),
+        taker: this.state.newOSTaker.id,
+        orders: this.state.orders,
+        table: this.state.newOSTable.table_no,
+        requests: this.state.neworderslipnote,
+        donetime: "0000-00-00 00:00:00",
+        cancelled: false,
+        billed: "0000-00-00 00:00:00",
+        numberOfRows: 3,
+      }
+
+      addOrderSlip(newOS,(response) => {
+        this.modalNewOSToggle()
+        getOrderSlips((responseOS) => {
+          this.setState({
+            orderslips: responseOS.response,
+          })
+        })
+      })
+    }
+    
+  }
+
+  modalOrderConfirmationToggle = () => {
+    this.setState({
+      modalOrderConfirmation: this.state.modalOrderConfirmation ? false: true,
+    })
+  }
+
+  saveOrder(item_index) {
+    const existing = this.state.orders.findIndex(obj => {
+      return obj.item.menu_id === this.state.food[item_index].menu_id;
+    });
+
+
+    if (existing !== -1) {
+      const tempOrders = this.state.orders
+
+      tempOrders[existing] = {
+        item: this.state.orders[existing].item,
+        cancelled: this.state.orders[existing].cancelled,
+        returned: this.state.orders[existing].returned,
+        donetime: this.state.orders[existing].donetime,
+        quantity: this.state.orders[existing].quantity + 1,
+        chef_id: this.state.orders[existing].chef_id,
+      }
+      this.setState({
+        modalNewMenuShow: false,
+        modalNewOSQty: false,
+        modalNewOSShow: true,
+        orders: tempOrders,
+        currentorder: {},
+        numberOfRows: this.state.numberOfRows === this.state.orders.length + 1 ? this.state.numberOfRows + 1: this.state.numberOfRows
+      }, () => {
+        getOrderSlips((responseOS) => {
+          this.setState({
+            orderslips: responseOS.response,
+          })
+        })
+      })
+    } else {
+      const currentorder = {
+        item: this.state.food[item_index],
+        cancelled: 0,
+        returned: 0,
+        donetime: "0000-00-00 00:00:00",
+        quantity: 1,
+        chef_id: null,
+      }
+  
+      this.setState({
+        modalNewMenuShow: false,
+        modalNewOSQty: false,
+        modalNewOSShow: true,
+        orders: [...this.state.orders, currentorder],
+        currentorder: {},
+        numberOfRows: this.state.numberOfRows === this.state.orders.length + 1 ? this.state.numberOfRows + 1: this.state.numberOfRows
+      }, () => {
+        getOrderSlips((responseOS) => {
+          this.setState({
+            orderslips: responseOS.response,
+          })
+        })
+      })
+    }
+  }
+
+  deleteOrder(index) {
+    var tempOrders = this.state.orders
+    delete tempOrders[index]
+
+    tempOrders = tempOrders.filter(function( element ) {
+      return element !== undefined;
+   });
+
+    this.setState({
+      orders: tempOrders,
+    })
+  }
   
   render() {
     return (
       <div className="App">
         <div className="top-nav">
           <Row>
-            <Col xs={6} md={4}>
-              <Button style={{margin: 10, width:'60%'}} variant="secondary" onClick={() => this.props.navigate(-1)}>Back</Button>
+            <Col xs={2} md={1}>
+              <Button style={{margin: 10, width:'100%', color: 'white'}} variant="secondary" onClick={() => this.props.navigate(-1)}>Back</Button>
             </Col>
-            <Col xs={6} md={4}>
-              <Button style={{margin: 10, width:'60%'}} variant="light" onClick={() => this.props.navigate(-1)}>History</Button>
+            <Col xs={2} md={2}>
+              <Button style={{margin: 10, width:'100%', color: 'Green'}} variant="light" href='/historyviewsummary'>History</Button>
             </Col>
-            <Col xs={6} md={4}>
-              <Button style={{margin: 10, width:'60%'}} variant="info" onClick={() => this.modalOSToggle()}>New OS</Button>
+            <Col xs={6} md={6}>
+              <Container style={{color:"white", width: "100%", margin: 10}}>
+                <Accordion defaultActiveKey="0">
+                  <Accordion.Item>
+                  <Accordion.Header>
+                    Reservations
+                    {this.state.reservations.length !== 0 ? <Badge pill bg="warning">{this.state.reservations.length} </Badge>: null}
+                  </Accordion.Header>
+                  <Accordion.Body>
+                    <ListGroup style={{marginBottom: 10}}>
+                      {
+                        
+                        Array.from(this.state.reservations).map((_, index) => (
+                          <ListGroup.Item onClick={() => { this.setState({selectedIndex: index}, () => { this.modalResToggle() })}}>
+                            {getStringDate(new Date(this.state.reservations[index].service_time),"/") + " - " + tConvertHM(dateConvert(new Date(this.state.reservations[index].service_time))) + " - " + this.state.reservations[index].res_name + " - " + this.state.tables[this.state.reservations[index].table_no-1].table_name + " - " + this.state.reservations[index].pax + " PAX"}
+                          </ListGroup.Item>
+                        ))
+                      }
+                    </ListGroup>
+                    
+                    <Row>
+                      <Button variant='success' href='/reservationssummary'>
+                        Add Reservation
+                      </Button>
+                    </Row>
+                  </Accordion.Body>
+                  </Accordion.Item>
+                </Accordion>
+              </Container>
+              
+            </Col>
+            <Col xs={2} md={3}>
+              <Button style={{margin: 10, width:'90%', color: 'white'}} variant="success" onClick={() => this.modalNewOSToggle()}>New OS</Button>
             </Col>
           </Row>
+          <Card>
+            <Card.Title style={{fontWeight: 'bolder'}}>{this.state.currenttime12H}</Card.Title>
+            <Card.Title style={{fontWeight: 'bolder'}}>{new Date().getMonth()+1}/{new Date().getDate()}/{new Date().getFullYear()}</Card.Title>
+          </Card>
           <p style={{color: 'white', fontSize:50}}>
-            Order Slips - {this.state.currenttime12H}
+            Order Slips
           </p>
         </div>
       <header className="App-header">
-        
           <Row>
             {
                 Object.keys(this.state.orderslips).map((keyName, i) => {
-                  return (
-                    <Col xs={6} md={4}>
+                  const orders = this.state.orderslips[i].orders !== undefined ? JSON.parse(this.state.orderslips[i].orders): []
+
+                  return (this.state.orderslips[i] && this.state.orderslips[i].cancelled !== "1" && this.state.orderslips[i].billed === "0000-00-00 00:00:00") ? (
+                    <Col xs={6} md={3}>
                       <Card style={{ width: '18rem' }}>
                         <Card.Body>
-                            <Card.Title style={{fontSize:35}}>{this.state.orderslips[keyName].table} <Badge>{tConvertHM(dateConvert(this.state.orderslips[keyName].datetime))}</Badge></Card.Title>
+                            <Card.Title style={{fontSize:35}}>{this.state.orderslips[i].table} <Badge bg='dark'>{tConvertHM(dateConvert(this.state.orderslips[i].dtime))} - {this.state.tables[this.state.orderslips[i].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[i].table_no-1].table_name: ""}</Badge></Card.Title>
                             <Card.Text style={{fontSize:15}}>
                               <ListGroup as="ul">
                                 {
-                                  Array.from(this.state.orderslips[keyName].orders).map((_,index) => (
-                                    <ListGroup.Item as="li">
-                                      {this.state.orderslips[keyName].orders[index].item.item_name} <Badge bg={this.state.orderslips[keyName].orders[index].done_time !== "" ? "success": "warning"}>{this.state.orderslips[keyName].orders[index].done_time !== "" ? "Done": "In Progress"}</Badge> - {parseInt(this.remainingTime(this.state.orderslips[keyName].datetime,this.state.orderslips[keyName].orders[index].item.est_time))} mins left
-                                    </ListGroup.Item>
-                                  ))
+                                  Array.from(orders).map((_,index) => { 
+
+                                    return (orders[index].cancelled !== "1" && orders[index].cancelled !== 1) ? (
+                                      <ListGroup.Item as="li">
+                                        {orders[index].quantity} * {orders[index].item.name} <Badge pill bg={orders[index].donetime !== "0000-00-00 00:00:00" ? "success": orders[index].chef_id === null ? "warning": "primary"}>{orders[index].donetime !== "0000-00-00 00:00:00" ? "Done": orders[index].chef_id === null ? "Waiting": "Making..."}</Badge> - {parseInt(this.remainingTime(this.state.orderslips[i].dtime,orders[index].item.est_time))} mins left
+                                      </ListGroup.Item>
+                                  ): null
+                                })
                                 }
-                                  
                                 </ListGroup>
                             </Card.Text>
                             <Button onClick={() => {
                                 this.setState({
-                                  selectedorderslip: this.state.orderslips[keyName]
+                                  selectedorderslip: i
                                 }, () => {
                                   this.modalOSToggle()
                                 })
@@ -160,54 +549,410 @@ class OrderSlipsSummaryN extends React.Component  {
                         </Card.Body>
                         </Card> 
                       </Col>
-                  )
+                  ): null
                 })
               }
           </Row>
             
       </header>
+
+      {/*EXISTING OS*/}
       <Modal size='lg' show={this.state.modalOSShow}>
         <Modal.Header>
-            <Modal.Title>OS No.: {this.state.selectedorderslip.os_no} <Badge>{tConvertHM(dateConvert(this.state.selectedorderslip.datetime))}</Badge> Table: {this.state.selectedorderslip.table}</Modal.Title>
+            <Modal.Title style={{width: '100%'}}>
+              <Row>
+                <Col xs={6} md={4}>
+                  <InputGroup className="mb-3">
+                    <InputGroup.Text id="inputGroup-sizing-default">
+                      OS No.:
+                    </InputGroup.Text>
+                    <Form.Control
+                      aria-label="Default"
+                      aria-describedby="inputGroup-sizing-default"
+                      disabled
+                      value={this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].os_no:""}
+                    />
+                  </InputGroup>
+                </Col>
+                <Col xs={6} md={8}>
+                  <InputGroup className="mb-3">
+                    <InputGroup.Text id="inputGroup-sizing-default">
+                      Table:
+                    </InputGroup.Text>
+                    <Dropdown >
+                      <Dropdown.Toggle variant="secondary" id="dropdown-basic" style={{width: "87%"}}>
+                      {this.state.orderslips[this.state.selectedorderslip] !== undefined ? (this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: ""): ""}
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {
+                          Array.from(this.state.tables).map((_, index) => (
+                            <Dropdown.Item onClick={() => {updateOSTable(index+1,this.state.orderslips[this.state.selectedorderslip].os_no,() => {})}} href="#/action-1" key={this.state.tables[index]}>{this.state.tables[index].table_name}</Dropdown.Item>
+                          ))
+                        }
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  </InputGroup>
+                </Col>
+              </Row>
+              <Row>
+                <Col xs={6} md={4}>
+                  <InputGroup className="mb-3">
+                    <InputGroup.Text id="inputGroup-sizing-default">
+                      Time:
+                    </InputGroup.Text>
+                    <Form.Control
+                      aria-label="Default"
+                      aria-describedby="inputGroup-sizing-default"
+                      disabled
+                      value={this.state.orderslips[this.state.selectedorderslip] != null ? (tConvertHM(dateConvert(this.state.orderslips[this.state.selectedorderslip].dtime))): ""}
+                    />
+                  </InputGroup>
+                </Col>
+                <Col xs={6} md={8}>
+                  <InputGroup className="mb-3">
+                    <InputGroup.Text id="inputGroup-sizing-default">
+                      Taker:
+                    </InputGroup.Text>
+                    <Form.Control
+                      aria-label="Default"
+                      aria-describedby="inputGroup-sizing-default"
+                      disabled
+                      value={(this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker] !== undefined) ? this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker].nickname: ""}
+                    />
+                  </InputGroup>
+                </Col>
+              </Row>
+              
+              <Badge bg="dark">{}</Badge>
+              
+            </Modal.Title>
           </Modal.Header>
 
           <Modal.Body>
             <ListGroup as="ul">
+                <Container>
                 {
-                  Array.from(this.state.selectedorderslip.orders).map((_,index) => (
-                    <ListGroup.Item as="li">
-                      <Container>
+                  Array.from(this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].orders: 0).map((_,index) => {
+                    const orders = JSON.parse(this.state.orderslips[this.state.selectedorderslip].orders)
+                    
+                    return (orders !== undefined && orders[index] !== undefined && orders.length !== 0 && this.state.orderslips[this.state.selectedorderslip] !== undefined && orders[index].cancelled !== "1" && orders[index].cancelled !== 1) ? (<ListGroup.Item as="li">
+                      
                         <Row>
-                          <Col xs={6} md={4}>{this.state.selectedorderslip.orders[index].item.item_name} <Badge bg={this.state.selectedorderslip.orders[index].done_time !== "" ? "success": "warning"}>{this.state.selectedorderslip.orders[index].done_time !== "" ? "Done": "In Progress"}</Badge></Col>
-                          <Col xs={6} md={4}><Badge bg={this.remainingTime(this.state.selectedorderslip.datetime,this.state.selectedorderslip.orders[index].item.est_time) ? 'primary': 'danger'}>{parseInt(this.remainingTime(this.state.selectedorderslip.datetime,this.state.selectedorderslip.orders[index].item.est_time))} mins left</Badge></Col>
-                          <Col xs={6} md={4}>
-                            <Button on onClick={() => {alert("Cancel?")}} 
+                          <Col xs={6} md={4} style={{width: '40%'}}>{orders[index].item.name} * {orders[index].quantity} {'('}{toWords(orders[index].quantity)}{')'} <Badge pill bg={orders[index].donetime !== "0000-00-00 00:00:00" ? "success": "warning"}>{orders[index].donetime !== "0000-00-00 00:00:00" ? "Done": "In Progress"}</Badge></Col>
+                          <Col xs={6} md={2} style={{width: '30%'}}><Badge style={{width: '100%'}} bg={this.remainingTime(this.state.orderslips[this.state.selectedorderslip].dtime,orders[index].item.est_time) ? 'primary': 'danger'}>{parseInt(this.remainingTime(this.state.orderslips[this.state.selectedorderslip].dtime,orders[index].item.est_time))} mins left</Badge></Col>
+                          <Col xs={6} md={4} style={{width: '30%'}}>
+                              <Button on onClick={() => {this.cancelOrder(this.state.orderslips[this.state.selectedorderslip],index)}} 
                                 style={{width: '100%', margin: 5}} 
-                                variant="danger">
+                                variant="secondary">
                                   Cancel
                               </Button>
-                              <Button onClick={() => {alert("Cancel?")}} 
+                              {orders[index].item.cat != CAT_CAFE && orders[index].donetime === "0000-00-00 00:00:00" ? <Button onClick={() => {
+                                this.setState({
+                                  selectedorder: {
+                                    os: this.state.orderslips[this.state.selectedorderslip],
+                                    index: index,
+                                  }
+                                })
+                                this.modalOrderConfirmationToggle()
+                              }} 
                                 style={{width: '100%', margin: 5}} 
-                                variant="warning">
+                                variant="success">
+                                  Done
+                              </Button>: null}
+                              {/* {orders[index].donetime !== "" ? <Button onClick={() => {alert("Cancel?")}} 
+                                style={{width: '100%', margin: 5}} 
+                                variant="dark">
                                   Return
-                              </Button>
+                              </Button>: null} */}
                           </Col>
                         </Row>
-                      </Container>
-                    </ListGroup.Item>
-                  ))
+                    
+                    </ListGroup.Item>): null
+              })
                 }
+                </Container>
               </ListGroup>
+            
+            <InputGroup style={{marginTop: 10}}>
+              <InputGroup.Text>Note</InputGroup.Text>
+              <Form.Control size='lg' as="textarea" aria-label="With textarea" disabled value={this.state.orderslips[this.state.selectedorderslip] != undefined ? this.state.orderslips[this.state.selectedorderslip].requests: ""}/>
+            </InputGroup>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => this.modalOSToggle()}>Close</Button>
+            <Button variant="outline-danger" onClick={() => {this.cancelAll(this.state.orderslips[this.state.selectedorderslip])}}>Cancel All</Button>
+            <Button variant="success" onClick={() => {
+              this.modalDoneConfirmationToggle()
+            }}>Billed</Button>
+          </Modal.Footer>
+      </Modal>
+
+      {/*DONE ORDER*/}
+      <Modal size='lg' show={this.state.modalOrderConfirmation}>
+        <Modal.Header>
+          <Modal.Title style={{justifyContent: "center"}}>
+            Done Order?
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Footer>
+          <Button style={{width: "100%"}} variant="secondary" onClick={() => this.modalOrderConfirmationToggle()}>No</Button>
+          <Button style={{width: "100%"}} variant="success" onClick={() => { 
+            this.doneKitchenOrder(this.state.selectedorder.os,this.state.selectedorder.index)
+            }}>Yes</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/*NEW OS*/}
+      <Modal 
+        fullscreen={true}
+        show={this.state.modalNewOSShow}
+      >
+        <Modal.Header>
+            <Modal.Title style={{justifyContent: "center", width: "100%"}}>
+              <Col>
+                <Row style={{marginBottom: 10}}>
+                  <Col xs={6} md={2}>
+                    Table:
+                  </Col>
+                  <Col xs={6} md={4}>
+                    <Dropdown>
+                      <Dropdown.Toggle variant="secondary" id="dropdown-basic" style={{width: "100%"}}>
+                        {(this.state.newOSTable == {} || this.state.newOSTable.table_name == null) ? "Select Table": this.state.newOSTable.table_name} 
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {
+                          Array.from(this.state.tables).map((_, index) => (
+                            <Dropdown.Item onClick={() => {this.setState({newOSTable: this.state.tables[index]})}} href="#/action-1" key={this.state.tables[index]}>{this.state.tables[index].table_name}</Dropdown.Item>
+                          ))
+                        }
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  </Col>
+                  <Col xs={6} md={2}>
+                    Taker:
+                  </Col>
+                  <Col xs={6} md={4}>
+                    <Dropdown>
+                      <Dropdown.Toggle variant="secondary" id="dropdown-basic" style={{width: "100%"}}>
+                        {this.state.newOSTaker === "" ? "Select Taker": this.state.newOSTaker.nickname} 
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {
+                          Object.keys(this.state.takers).map((key, index) => (
+                            <Dropdown.Item onClick={() => {
+                              this.setState({newOSTaker: this.state.takers[key]})
+                            }} 
+                            href="#/action-1" key={key}>{this.state.takers[key].nickname}</Dropdown.Item>
+                          ))
+                        }
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  </Col>
+                </Row>
+                <Row>
+                  <Col xs={6} md={2}> Time: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control  type="text" disabled value={tConvertHM(dateConvert(new Date()))} />
+                  </Col>
+                  <Col xs={6} md={2}> Rows: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control  type="number" value={this.state.numberOfRows} onChange={(text) => {this.numberOfRowsCalc(text.target.value)}} />
+                  </Col>
+                </Row>
+                
+              </Col>
+            </Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body>
+            <Row>
+            <Col xs={6} md={3}>
+              <p style={{textAlign: 'center', fontWeight: "bold"}}>MENU</p>
+                <ListGroup as="ul">
+                    {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
+                  {
+                          Array(this.state.numberOfRows).fill(1).map((_,index) => (
+                            <InputGroup className="mb-3">
+                              <ButtonGroup justified style={{width: "80%"}}>
+                              {this.state.orders[index] != null ? <Button onClick={() => { this.deleteOrder(index)}} variant="dark"> X </Button>: null}
+                                <Button variant={this.state.orders[index] != null ? "success": "secondary"} style={{width: "100%", color: 'white'}}> {this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"} </Button>
+                              </ButtonGroup>
+                              
+                              <Form.Control value={this.state.orders[index] != null ? this.state.orders[index].quantity: ""} type='number' style={{width: '20%', flex: 'none'}} onChange={(data) => {
+                                const tempOrders = this.state.orders;
+                                const currentQty = data.target.value
+                                
+                                tempOrders[index] = {
+                                  item: tempOrders[index].item,
+                                  cancelled: tempOrders[index].cancelled,
+                                  returned: tempOrders[index].returned,
+                                  donetime: tempOrders[index].donetime,
+                                  chef_id: tempOrders[index].chef_id,
+                                  quantity: currentQty < 1 ? 1: currentQty,
+                                }
+
+                                this.setState({orders: tempOrders})
+
+                              }} aria-label="Text input with dropdown button" />
+                            </InputGroup>
+                          ))
+                  }
+                
+                </ListGroup>
+                
+                <InputGroup style={{marginTop: 10, width: '100%'}}>
+                  <InputGroup.Text style={{width: "15%"}}>Note</InputGroup.Text>
+                  <Form.Control style={{width: "85%"}} size='lg' as="textarea" aria-label="With textarea" value={this.state.neworderslipnote} onChange={(data) => {this.setState({neworderslipnote: data.target.value})}}/>
+                </InputGroup>
+              </Col>
+              <Col xs={6} md={9}>
+                  <Row>
+                  {
+                        Array.from(this.state.food).map((_,key) => (
+                          
+                            <Card onClick={() => {this.saveOrder(key)}} style={{color: "white", height: 70, width: 140, margin: 1, backgroundColor: this.state.food[key].cat == 1 ? "#033500": "#231709"}}>
+                              <Card.Body>
+                                  <Card.Title style={{fontSize:15}}>{this.state.food[key] !== undefined ? this.state.food[key].name: ""} </Card.Title>
+                              </Card.Body>
+                            </Card> 
+                          
+                                      
+                        ))
+                  }
+                  </Row>
+                  
+              </Col>
+            </Row>
             
             
           </Modal.Body>
 
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => this.modalOSToggle()}>Close</Button>
-            <Button variant="primary">Table Change</Button>
-            <Button variant="primary">Save changes</Button>
+            <Button variant="secondary" onClick={() => this.modalNewOSToggle()}>Close</Button>
+            <Button variant="success" onClick={() => {this.saveNewOS()}}>Save changes</Button>
           </Modal.Footer>
+          
       </Modal>
+
+        {/*SHOW BILLED MODAL*/}
+        <Modal size='lg' show={this.state.modalConfirmation}>
+          <Modal.Header>
+            <Modal.Title style={{justifyContent: "center"}}>
+              Already Billed?
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Footer>
+            <Button style={{width: "100%"}} variant="secondary" onClick={() => this.modalDoneConfirmationToggle()}>No</Button>
+            <Button style={{width: "100%"}} variant="success" onClick={() => { 
+              this.doneOrder()
+              }}>Yes</Button>
+          </Modal.Footer>
+        </Modal>
+
+      {/*EXISTING RESERVATIONS*/}
+      { this.state.selectedIndex !== -1 ? <Modal size='lg' show={this.state.modalResShow}>
+        <Modal.Header>
+            <Modal.Title style={{width: '100%'}}>
+              <Col>
+                <Row style={{marginBottom: 10}}>
+                  <Col xs={6} md={2}>
+                    Res No.:
+                  </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control
+                      aria-label="Default"
+                      aria-describedby="inputGroup-sizing-default"
+                      disabled
+                      value={this.state.selectedIndex != -1 && this.state.reservations[this.state.selectedIndex].res_no !== undefined ? this.state.reservations[this.state.selectedIndex].res_no: ""}
+                    />
+                  </Col>
+                  <Col xs={6} md={2}>
+                    Taker:
+                  </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control disabled type="text" value={this.state.selectedIndex !== -1 && this.state.takers[this.state.reservations[this.state.selectedIndex].taker] !== undefined ? this.state.takers[this.state.reservations[this.state.selectedIndex].taker].name: ""} />
+                  </Col>
+                </Row>
+                <Row style={{marginBottom: 10}}>
+                  <Col xs={6} md={2}> Date: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control
+                      aria-label="Default"
+                      aria-describedby="inputGroup-sizing-default"
+                      disabled
+                      type="text"
+                      value={this.state.selectedIndex != -1 ? format(new Date(this.state.reservations[this.state.selectedIndex].service_time), "MM/dd/yy"): ""}
+                    />
+                  </Col>
+                  <Col xs={6} md={2}> Table: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control disabled type="text" value={this.state.selectedIndex != -1 ? this.state.tables[this.state.reservations[this.state.selectedIndex].table_no].table_name: 0} />
+                  </Col>
+                </Row>
+                <Row style={{marginBottom: 10}}>
+                  <Col xs={6} md={2}> Time: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control
+                      aria-label="Default"
+                      aria-describedby="inputGroup-sizing-default"
+                      disabled
+                      value={this.state.selectedIndex != -1 ? tConvertHM(dateConvert(new Date(this.state.reservations[this.state.selectedIndex].service_time))): ""}
+                    />
+                  </Col>
+                  <Col xs={6} md={2}> PAX: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control  type="number" disabled value={this.state.selectedIndex != -1 ? this.state.reservations[this.state.selectedIndex].pax: ""}/>
+                  </Col>
+                </Row>
+                <Row style={{marginBottom: 10}}>
+                  <Col xs={6} md={2}> Name: </Col>
+                  <Col xs={6} md={4}>
+                  <Form.Control  type="name" disabled value={this.state.selectedIndex != -1 ? this.state.reservations[this.state.selectedIndex].res_name: ""}/>
+                  </Col>
+                  <Col xs={6} md={2}> Phone: </Col>
+                  <Col xs={6} md={4}>
+                    <Form.Control  type="text" disabled value={this.state.selectedIndex != -1 ? this.state.reservations[this.state.selectedIndex].res_contact: ""}/>
+                  </Col>
+                </Row>
+                </Col>
+              <Badge bg="dark">{}</Badge>
+              
+            </Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body>
+            <ListGroup as="ul">
+                <Container>
+                {
+                  Array.from(this.state.selectedIndex != -1 ? this.state.reservations[this.state.selectedIndex].orders: 0).map((_,index) => {
+                    const orders = JSON.parse(this.state.reservations[this.state.selectedIndex].orders)
+                    
+                    return (orders !== undefined && orders[index] !== undefined && orders.length !== 0 && this.state.reservations[this.state.selectedIndex] !== undefined && orders[index].cancelled !== "1" && orders[index].cancelled !== 1) ? (<ListGroup.Item as="li">
+                      
+                        <Row>
+                          <Col xs={6} md={6} style={{width: '40%'}}>{orders[index].item.name}</Col>
+                          <Col xs={6} md={6} style={{width: '30%'}}><Badge style={{width: '100%'}} bg={'success'}>{orders[index].quantity} {'('}{toWords(orders[index].quantity)}{')'}</Badge></Col>
+                        </Row>
+                    
+                    </ListGroup.Item>): null
+              })
+                }
+                </Container>
+              </ListGroup>
+            
+            <InputGroup style={{marginTop: 10}}>
+              <InputGroup.Text>Note</InputGroup.Text>
+              <Form.Control size='lg' as="textarea" aria-label="With textarea" disabled value={this.state.reservations[this.state.selectedIndex] != undefined ? this.state.reservations[this.state.selectedIndex].notes: ""}/>
+            </InputGroup>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => this.modalResToggle()}>Close</Button>
+            <Button variant="danger" onClick={() => this.cancelPromptReservation(this.state.reservations[this.state.selectedIndex].res_no)}>Cancel</Button>
+            <Button variant="success" onClick={() => this.saveNewOrderslip()}>{ JSON.parse(this.state.reservations[this.state.selectedIndex].orders).length !== 0 ? "Create New OS": "Arrived"}</Button>
+          </Modal.Footer>
+      </Modal>: null}
     </div>
     )
     

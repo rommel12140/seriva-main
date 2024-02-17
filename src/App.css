@@ -5,7 +5,7 @@
   background-color: #0a3013;
   color: white;
   font-family:'sans-serif';
-  
+  min-height: 100vh;
 }
 
 .App-logo {

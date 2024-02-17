@@ -27,10 +27,47 @@ export function tConvertHM (time) {
 }
 
 export function dateConvert(date) {
-    const hour = date.getHours().toString().length == 1 ? "0" + date.getHours(): date.getHours()
-    const minutes = date.getMinutes().toString().length == 1 ? "0" + date.getMinutes(): date.getMinutes()
-    const seconds = date.getSeconds().toString().length == 1 ? "0" + date.getSeconds(): date.getSeconds()
+    const nDate = new Date(date)
+    const hour = nDate.getHours().toString().length == 1 ? "0" + nDate.getHours(): nDate.getHours()
+    const minutes = nDate.getMinutes().toString().length == 1 ? "0" + nDate.getMinutes(): nDate.getMinutes()
+    const seconds = nDate.getSeconds().toString().length == 1 ? "0" + nDate.getSeconds(): nDate.getSeconds()
 
     return hour + ':' + minutes + ':' + seconds;
 }
-   
+
+export function tSQLConvert(date) {
+  // Split timestamp into [ Y, M, D, h, m, s ]
+
+  var t = date.split(/[- :]/);
+  
+  // Apply each element to the Date function
+  var d = new Date(Date.UTC(t[0], t[1]-1, t[2], t[3], t[4], t[5]));
+  
+  return d;
+}
+
+export function arrayToObject(array) {
+  const target = {}; 
+  array.forEach((key, index) => target[array[index].id] = array[index]);
+  
+  return target
+}
+
+export function countProgressItems(orders,cat) {
+  const ordersDone = orders.filter(item => item.donetime === "0000-00-00 00:00:00");
+  const ordersCancelled = ordersDone.filter(item => item.cancelled !== 1);
+  const ordersCat = ordersCancelled.filter(item => item.item.cat == cat);
+  const count = ordersCat.length;
+  
+  return count;
+}
+
+export function getStringDate(sDate,separator=''){
+
+  let newDate = new Date(sDate)
+  let date = newDate.getDate();
+  let month = newDate.getMonth() + 1;
+  let year = newDate.getFullYear();
+  
+  return `${month<10?`0${month}`:`${month}`}${separator}${date<10?`0${date}`:`${date}`}${separator}${year}`
+}
