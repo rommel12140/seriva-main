@@ -6,6 +6,7 @@ import KitchenViewSummary from './Components/KitchenView/kitchenView';
 import CafeViewSummary from './Components/CafeView/cafeView';
 import ReservationsSummary from './Components/ReservationsView/reservationsView';
 import HistoryViewSummary from './Components/History/historyView';
+import Inventory from './Components/Inventory/inventory';
 
 function Routing() {
   return (
@@ -17,6 +18,7 @@ function Routing() {
         <Route path="/cafeviewsummary" element={<CafeViewSummary />} />
         <Route path="/reservationssummary" element={<ReservationsSummary />} />
         <Route path="/historyviewsummary" element={<HistoryViewSummary />} />
+        <Route path="/inventory" element={<Inventory />} />
       </Routes>
     </BrowserRouter>
   )

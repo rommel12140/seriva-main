@@ -1,12 +1,13 @@
 import React from 'react';
 import '../../App.css';
-import { Card, Button, Col, Row, Modal, Alert, Badge, ListGroup, Container, Form, Dropdown, InputGroup, DropdownButton, ButtonGroup, Accordion } from 'react-bootstrap';
+import { Card, Button, Col, Row, Modal, Alert, Badge, ListGroup, Container, Form, Dropdown, InputGroup, DropdownButton, ButtonGroup, Accordion, ModalFooter } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
 import { arrayToObject, dateConvert, getStringDate, tConvert, tConvertHM, tSQLConvert } from '../Utilities/timeconvert';
-import { CAT_CAFE, getNowDate, menu, tables, taker } from '../Utilities/data';
-import { addOrderSlip, billedAllOrders, cancelOrderFromOS, cancelOrderSlip, cancelReservation, getAvailableMenu, getEmployees, getLastOS, getMenu, getOpenOrderSlips, getOrderSlips, getReservations, getReservationsIncoming, getServers, getTables, updateOSReservation, updateOSTable, updateOrderStatusDone } from '../Utilities/requests';
+import { CAT_ARR, CAT_CAFE, CAT_RESTAURANT, CAT_STRING, TYPE_ARR, TYPE_STRING, getNowDate, menu, tables, taker } from '../Utilities/data';
+import { addMenu, addOrderSlip, billedAllOrders, cancelOrderFromOS, cancelOrderSlip, cancelReservation, getAvailableMenu, getEmployees, getLastOS, getMenu, getOpenOrderSlips, getOrderSlips, getReservations, getReservationsIncoming, getServers, getTables, updateOSReservation, updateOSTable, updateOrderStatusDone } from '../Utilities/requests';
 import { toWords } from 'number-to-words';
 import { format } from 'date-fns';
+import ReactToPrint, { PrintContextConsumer } from 'react-to-print';
 
 const SAMPLE_FOOD = [
   {
@@ -51,6 +52,16 @@ const ORDERSLIPDEFAULT = [{
   cancelled: true,
 }]
 
+const ITEM_DEFAULT = {
+  name: "",
+  cat: -1,
+  type: -1,
+  est_time: 0,
+  cogs: 0,
+  available: 1,
+  removed: 0,
+  qty: 0,
+}
 
 class OrderSlipsSummaryN extends React.Component  {
 
@@ -78,7 +89,10 @@ class OrderSlipsSummaryN extends React.Component  {
     selectedIndex: -1,
     modalResShow: false,
     modalOrderConfirmation: false,
-    selectedorder: {}
+    selectedorder: {},
+    newItem: ITEM_DEFAULT,
+    modalAddMenu: false,
+    modalRepeatOrders: false,
   }
   
   componentDidMount() {
@@ -95,6 +109,22 @@ class OrderSlipsSummaryN extends React.Component  {
           },() => {
             this.loadOrderSlips()
             this.loadReservations()
+          })
+        })
+      })
+    })
+  }
+
+  loadAll() {
+    getServers((responseEmployees) => {
+      getTables((responseTables) => {
+        getAvailableMenu((responseFood) => {
+          this.setState({
+            food: responseFood.response,
+            tables: responseTables.response,
+            takers: arrayToObject(responseEmployees.response)
+          },() => {
+            
           })
         })
       })
@@ -122,6 +152,12 @@ class OrderSlipsSummaryN extends React.Component  {
         setTimeout(() => this.loadOrderSlips(), 1000)
         
       })
+    })
+  }
+
+  toggleModalAddMenu() {
+    this.setState({
+      modalAddMenu: this.state.modalAddMenu ? false: true,
     })
   }
 
@@ -199,6 +235,18 @@ class OrderSlipsSummaryN extends React.Component  {
         })
       })
     }
+  }
+
+  saveMenu(){
+    this.toggleModalAddMenu()
+    addMenu(this.state.newItem, () => {
+      this.setState({
+        newItem: ITEM_DEFAULT
+      }, () => {
+        this.loadAll()
+      })
+    })
+    
   }
 
   saveNewOrderslip() {
@@ -375,6 +423,7 @@ class OrderSlipsSummaryN extends React.Component  {
         getOrderSlips((responseOS) => {
           this.setState({
             orderslips: responseOS.response,
+            modalRepeatOrders: false,
           })
         })
       })
@@ -386,6 +435,12 @@ class OrderSlipsSummaryN extends React.Component  {
     this.setState({
       modalOrderConfirmation: this.state.modalOrderConfirmation ? false: true,
     })
+  }
+
+  checkInvalidNewItem() {
+    return (
+      this.state.newItem.name === ITEM_DEFAULT.name || this.state.newItem.cat === ITEM_DEFAULT.cat || this.state.newItem.type === ITEM_DEFAULT.type || this.state.newItem.est_time === ITEM_DEFAULT.est_time
+    )
   }
 
   saveOrder(item_index) {
@@ -470,7 +525,7 @@ class OrderSlipsSummaryN extends React.Component  {
             <Col xs={2} md={2}>
               <Button style={{margin: 10, width:'100%', color: 'Green'}} variant="light" href='/historyviewsummary'>History</Button>
             </Col>
-            <Col xs={6} md={6}>
+            <Col xs={6} md={5}>
               <Container style={{color:"white", width: "100%", margin: 10}}>
                 <Accordion defaultActiveKey="0">
                   <Accordion.Item>
@@ -501,7 +556,10 @@ class OrderSlipsSummaryN extends React.Component  {
               </Container>
               
             </Col>
-            <Col xs={2} md={3}>
+            <Col xs={2} md={2}>
+              <Button style={{margin: 10, width:'90%', color: 'white'}} variant="success" onClick={() => this.toggleModalAddMenu()}>Add Menu Item</Button>
+            </Col>
+            <Col xs={2} md={2}>
               <Button style={{margin: 10, width:'90%', color: 'white'}} variant="success" onClick={() => this.modalNewOSToggle()}>New OS</Button>
             </Col>
           </Row>
@@ -556,6 +614,73 @@ class OrderSlipsSummaryN extends React.Component  {
             
       </header>
 
+      {/* NEW MENU ITEM */}
+      <Modal size='lg' show={this.state.modalAddMenu}>
+          <Modal.Header>
+              ADD NEW MENU ITEM
+          </Modal.Header>
+          <Modal.Body>
+            <Row>
+              <Col xs={6} md={2}> Menu Name: </Col>
+              <Col xs={6} md={4}>
+                  <Form.Control value={this.state.newItem.name} type="text" onChange={(text) => {this.setState({ newItem: {...this.state.newItem, name: text.target.value}})}}/>
+              </Col>
+              <Col xs={6} md={2}> Category: </Col>
+              <Col xs={6} md={4}>
+                  <Dropdown>
+                      <Dropdown.Toggle variant="dark" id="dropdown-basic" style={{width: "100%"}}>
+                      {(this.state.newItem.cat == -1) ? "Select Unit": CAT_STRING(this.state.newItem.cat)} 
+                      
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                      {
+                          Array.from(CAT_ARR).map((_, index) => (<Dropdown.Item onClick={() => {
+                              
+                              this.setState({ newItem: {...this.state.newItem, cat: CAT_ARR[index]} }, () => {})}}>{CAT_STRING(CAT_ARR[index])}</Dropdown.Item>
+                          ))
+                      }
+                      </Dropdown.Menu>
+                  </Dropdown>
+              </Col>
+            </Row>
+            <Row style={{marginTop: 10}}>
+              <Col xs={6} md={2}> Estimated Minutes: </Col>
+              <Col xs={6} md={4}>
+                  <Form.Control value={this.state.newItem.est_time} type="text" onChange={(text) => {this.setState({ newItem: {...this.state.newItem, est_time: text.target.value}})}}/>
+              </Col>
+              <Col xs={6} md={2}> Type: </Col>
+              <Col xs={6} md={4}>
+                  <Dropdown>
+                      <Dropdown.Toggle variant="dark" id="dropdown-basic" style={{width: "100%"}}>
+                      {(this.state.newItem.type == -1) ? "Select Type": TYPE_STRING(this.state.newItem.type)} 
+                      
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                      {
+                          Array.from(TYPE_ARR).map((_, index) => (<Dropdown.Item onClick={() => {
+                              
+                              this.setState({ newItem: {...this.state.newItem, type: TYPE_ARR[index]} }, () => {})}}>{TYPE_STRING(TYPE_ARR[index])}</Dropdown.Item>
+                          ))
+                      }
+                      </Dropdown.Menu>
+                  </Dropdown>
+              </Col>
+            </Row>
+            <Row style={{marginTop: 10}}>
+              <Col xs={6} md={2}> Price: </Col>
+              <Col xs={6} md={4}>
+                  <Form.Control value={this.state.newItem.cogs} type="text" onChange={(text) => {this.setState({ newItem: {...this.state.newItem, cogs: text.target.value}})}}/>
+              </Col>
+            </Row>
+
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant='danger' onClick={() => this.toggleModalAddMenu()}> Close </Button>
+            <Button variant='success' disabled={this.checkInvalidNewItem()} onClick={() => this.saveMenu()}> Save </Button>
+          </Modal.Footer>
+
+      </Modal>
+      
       {/*EXISTING OS*/}
       <Modal size='lg' show={this.state.modalOSShow}>
         <Modal.Header>
@@ -765,49 +890,51 @@ class OrderSlipsSummaryN extends React.Component  {
             </Modal.Title>
           </Modal.Header>
 
-          <Modal.Body>
+          <Modal.Body style={{overflow:'hidden'}}>
             <Row>
             <Col xs={6} md={3}>
+              <Container>
               <p style={{textAlign: 'center', fontWeight: "bold"}}>MENU</p>
-                <ListGroup as="ul">
-                    {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
-                  {
-                          Array(this.state.numberOfRows).fill(1).map((_,index) => (
-                            <InputGroup className="mb-3">
-                              <ButtonGroup justified style={{width: "80%"}}>
-                              {this.state.orders[index] != null ? <Button onClick={() => { this.deleteOrder(index)}} variant="dark"> X </Button>: null}
-                                <Button variant={this.state.orders[index] != null ? "success": "secondary"} style={{width: "100%", color: 'white'}}> {this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"} </Button>
-                              </ButtonGroup>
-                              
-                              <Form.Control value={this.state.orders[index] != null ? this.state.orders[index].quantity: ""} type='number' style={{width: '20%', flex: 'none'}} onChange={(data) => {
-                                const tempOrders = this.state.orders;
-                                const currentQty = data.target.value
+                  <ListGroup as="ul">
+                      {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
+                    {
+                            Array(this.state.numberOfRows).fill(1).map((_,index) => (
+                              <InputGroup className="mb-3">
+                                <ButtonGroup justified style={{width: "80%"}}>
+                                {this.state.orders[index] != null ? <Button onClick={() => { this.deleteOrder(index)}} variant="dark"> X </Button>: null}
+                                  <Button variant={this.state.orders[index] != null ? (this.state.orders[index].item.cat == CAT_RESTAURANT ? "success": "dark"): "secondary"} style={{width: "100%", color: 'white'}}> {this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"} </Button>
+                                </ButtonGroup>
                                 
-                                tempOrders[index] = {
-                                  item: tempOrders[index].item,
-                                  cancelled: tempOrders[index].cancelled,
-                                  returned: tempOrders[index].returned,
-                                  donetime: tempOrders[index].donetime,
-                                  chef_id: tempOrders[index].chef_id,
-                                  quantity: currentQty < 1 ? 1: currentQty,
-                                }
+                                <Form.Control value={this.state.orders[index] != null ? this.state.orders[index].quantity: ""} type='number' style={{width: '20%', flex: 'none'}} onChange={(data) => {
+                                  const tempOrders = this.state.orders;
+                                  const currentQty = data.target.value
+                                  
+                                  tempOrders[index] = {
+                                    item: tempOrders[index].item,
+                                    cancelled: tempOrders[index].cancelled,
+                                    returned: tempOrders[index].returned,
+                                    donetime: tempOrders[index].donetime,
+                                    chef_id: tempOrders[index].chef_id,
+                                    quantity: currentQty < 1 ? 1: currentQty,
+                                  }
 
-                                this.setState({orders: tempOrders})
+                                  this.setState({orders: tempOrders})
 
-                              }} aria-label="Text input with dropdown button" />
-                            </InputGroup>
-                          ))
-                  }
-                
-                </ListGroup>
-                
-                <InputGroup style={{marginTop: 10, width: '100%'}}>
-                  <InputGroup.Text style={{width: "15%"}}>Note</InputGroup.Text>
-                  <Form.Control style={{width: "85%"}} size='lg' as="textarea" aria-label="With textarea" value={this.state.neworderslipnote} onChange={(data) => {this.setState({neworderslipnote: data.target.value})}}/>
-                </InputGroup>
+                                }} aria-label="Text input with dropdown button" />
+                              </InputGroup>
+                            ))
+                    }
+                  
+                  </ListGroup>
+                  
+                  <InputGroup style={{marginTop: 10, width: '100%'}}>
+                    <InputGroup.Text style={{width: "15%"}}>Note</InputGroup.Text>
+                    <Form.Control style={{width: "85%"}} size='lg' as="textarea" aria-label="With textarea" value={this.state.neworderslipnote} onChange={(data) => {this.setState({neworderslipnote: data.target.value})}}/>
+                  </InputGroup>
+              </Container>
               </Col>
-              <Col xs={6} md={9}>
-                  <Row>
+              <Col xs={6} md={9} >
+                <Row style={{overflowY: 'scroll', height: '500px'}}>
                   {
                         Array.from(this.state.food).map((_,key) => (
                           
@@ -821,7 +948,6 @@ class OrderSlipsSummaryN extends React.Component  {
                         ))
                   }
                   </Row>
-                  
               </Col>
             </Row>
             
@@ -830,7 +956,7 @@ class OrderSlipsSummaryN extends React.Component  {
 
           <Modal.Footer>
             <Button variant="secondary" onClick={() => this.modalNewOSToggle()}>Close</Button>
-            <Button variant="success" onClick={() => {this.saveNewOS()}}>Save changes</Button>
+            <Button variant="success" onClick={() => {this.setState({modalRepeatOrders: true})}}>Order</Button>
           </Modal.Footer>
           
       </Modal>
@@ -953,7 +1079,37 @@ class OrderSlipsSummaryN extends React.Component  {
             <Button variant="success" onClick={() => this.saveNewOrderslip()}>{ JSON.parse(this.state.reservations[this.state.selectedIndex].orders).length !== 0 ? "Create New OS": "Arrived"}</Button>
           </Modal.Footer>
       </Modal>: null}
-    </div>
+      <Modal size='lg' show={this.state.modalRepeatOrders}>
+          <Modal.Title style={{textAlign: 'center'}}>
+              Please Repeat Orders
+          </Modal.Title>
+          <Modal.Body>
+                <ListGroup as="ul" style={{margin: 10, fontWeight: 'bolder'}} ref={el => (this.componentRef = el)}>
+                    {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
+                  {
+                          Array(this.state.numberOfRows).fill(1).map((_,index) => this.state.orders[index] != null ? (
+                            <InputGroup className="mb-3">
+                                <p>{this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"} </p>
+                              <p>{this.state.orders[index] != null ? this.state.orders[index].quantity: ""}</p>
+                            </InputGroup>
+                          ): null)
+                  }
+                
+                </ListGroup>
+          </Modal.Body>
+          <Modal.Footer>
+          <ReactToPrint content={() => this.componentRef}>
+              <PrintContextConsumer>
+                {({ handlePrint }) => (
+                  <button onClick={handlePrint}>Print this out!</button>
+                )}
+              </PrintContextConsumer>
+            </ReactToPrint>
+              <Button variant="danger" onClick={() => {this.setState({modalRepeatOrders: false}, () => {})}}>Cancel</Button>
+              <Button variant="success" onClick={() => {this.saveNewOS()}}>Order</Button>
+          </Modal.Footer>
+      </Modal>
+      </div>
     )
     
   }
