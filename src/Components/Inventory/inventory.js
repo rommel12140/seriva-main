@@ -4,7 +4,7 @@ import { Button, ButtonGroup, Col, Dropdown, Form, InputGroup, Modal, Row, Spinn
 import { useNavigate } from 'react-router';
 import { arrayToObject } from '../Utilities/timeconvert';
 import { addInventoryBatch, addItem, addSupplier, getEmployees, getInvItems, getInventory, getLastBatch, getServers, getSupplier } from '../Utilities/requests';
-import { AREA_ARR, AREA_STRING, ICAT_ARR, ICAT_STRING, INV_ARR, INV_CM, INV_IN, INV_OUT, INV_STAT_ARR, INV_STAT_STRING, INV_WST, ST_ARR, ST_STRING, UNIT_ARR, UNIT_STRING } from '../Utilities/data';
+import { AREA_ADMIN, AREA_ARR, AREA_COMMI, AREA_FOH_CAFE, AREA_FOH_RESTAURANT, AREA_KITCHEN_RESTAURANT, AREA_STRING, CAT_CAFE, CAT_RESTAURANT, ICAT_ARR, ICAT_CAFE, ICAT_KIT, ICAT_RES, ICAT_STRING, INV_ARR, INV_CM, INV_IN, INV_OUT, INV_STAT_ARR, INV_STAT_STRING, INV_WST, ST_ARR, ST_STRING, UNIT_ARR, UNIT_STRING } from '../Utilities/data';
 
 const ITEM_DEFAULT = {
     cat: -1,
@@ -33,9 +33,11 @@ class InventoryN extends React.Component  {
     newItem: ITEM_DEFAULT,
     area: -1,
     filterArea: -1,
+    filteredItems: {},
     rows: 3,
     loading: false,
     notes: "No Notes",
+    areaitems: {},
   }
   
   componentDidMount() {
@@ -55,6 +57,7 @@ class InventoryN extends React.Component  {
                         filterArea: -1,
                     },() => {
                         this.calculateTotalInventoryItem()
+                        this.changeAreaItems(-1)
                     })
                   })
             })
@@ -67,10 +70,8 @@ class InventoryN extends React.Component  {
     var tempInventory = {}
     if(this.state.filterArea !== -1) {
         const filteredInventory = arrayToObject(Object.values(this.state.inventory).filter((obj) => {
-                                        console.log(this.state.inventory)
                                         return (Number(obj.area) === Number(this.state.filterArea));
                                     }));
-        console.log(filteredInventory)
         this.setState({inventoryTotal: {}}, () => {
             Object.keys(filteredInventory !== undefined ? filteredInventory: {}).map((key,index) => {
                 const currentInventory = this.state.inventory[key]
@@ -89,9 +90,6 @@ class InventoryN extends React.Component  {
                         [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
                     }
                 }
-                
-                
-                console.log(tempInventory)
             })
             this.setState({inventoryTotal: tempInventory})
         })
@@ -119,7 +117,33 @@ class InventoryN extends React.Component  {
             this.setState({inventoryTotal: tempInventory})
         })
     }
+  }
+
+  changeAreaItems(area) {
+    var currentCat = -1
     
+    if(area == AREA_FOH_CAFE){
+        currentCat = ICAT_CAFE
+    } else if(area == AREA_COMMI || area == AREA_KITCHEN_RESTAURANT) {
+        currentCat = ICAT_KIT
+    }  else if(area == AREA_FOH_RESTAURANT) {
+        currentCat = ICAT_RES
+    }
+
+    if(area !== -1){
+        this.setState({area:area}, () => {
+            const filteredItems = arrayToObject(Object.values(this.state.items).filter((obj) => {
+                return (Number(obj.cat) === currentCat);
+            }));
+            this.setState({
+                filteredItems: filteredItems
+            })
+        })
+    } else {
+        this.setState({
+            filteredItems: this.state.items
+        })
+    }
     
   }
 
@@ -152,12 +176,11 @@ class InventoryN extends React.Component  {
 
   addSupplier() {
     const selection = prompt("Supplier Name:")
-    if(selection !== null) {
+    if(selection !== undefined && selection !== null && selection !== "") {
         addSupplier(selection, () => {
             this.reload()
         })
     }
-    
   }
 
   saveInventory(item) {
@@ -356,7 +379,7 @@ class InventoryN extends React.Component  {
                                 </Dropdown.Toggle>
                                 <Dropdown.Menu>
                                 {
-                                    Array.from(AREA_ARR).map((_, index) => (<Dropdown.Item onClick={() => {this.setState({area: AREA_ARR[index]})}}>{AREA_STRING(AREA_ARR[index])}</Dropdown.Item>
+                                    Array.from(AREA_ARR).map((_, index) => (<Dropdown.Item onClick={() => {this.changeAreaItems(AREA_ARR[index])}}>{AREA_STRING(AREA_ARR[index])}</Dropdown.Item>
                                     ))
                                 }
                                 </Dropdown.Menu>
@@ -381,7 +404,7 @@ class InventoryN extends React.Component  {
                                         </Dropdown.Toggle>
                                         <Dropdown.Menu>
                                         {
-                                            Object.keys(this.state.items).map((key, index) => (<Dropdown.Item onClick={() => {this.saveInventory(this.state.items[key])}} key={key}>{this.state.items[key] !== undefined ? this.state.items[key].name: null}</Dropdown.Item>
+                                            Object.keys(this.state.filteredItems).map((key, index) => (<Dropdown.Item onClick={() => {this.saveInventory(this.state.items[key])}} key={key}>{this.state.items[key] !== undefined ? this.state.items[key].name: null}</Dropdown.Item>
                                             ))
                                         }
                                         </Dropdown.Menu>
