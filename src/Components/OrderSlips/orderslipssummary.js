@@ -520,7 +520,7 @@ class OrderSlipsSummaryN extends React.Component  {
         <div className="top-nav">
           <Row>
             <Col xs={2} md={1}>
-              <Button style={{margin: 10, width:'100%', color: 'white'}} variant="secondary" onClick={() => this.props.navigate(-1)}>Back</Button>
+              <Button style={{margin: 10, width:'100%', color: 'white'}} variant="secondary" href="/">Back</Button>
             </Col>
             <Col xs={2} md={2}>
               <Button style={{margin: 10, width:'100%', color: 'Green'}} variant="light" href='/historyviewsummary'>History</Button>
@@ -581,7 +581,7 @@ class OrderSlipsSummaryN extends React.Component  {
                     <Col xs={6} md={3}>
                       <Card style={{ width: '18rem' }}>
                         <Card.Body>
-                            <Card.Title style={{fontSize:35}}>{this.state.orderslips[i].table} <Badge bg='dark'>{tConvertHM(dateConvert(this.state.orderslips[i].dtime))} - {this.state.tables[this.state.orderslips[i].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[i].table_no-1].table_name: ""}</Badge></Card.Title>
+                            <Card.Title style={{fontSize:35}}>{this.state.orderslips[i].table} <Badge bg='dark'>{tConvertHM(dateConvert(this.state.orderslips[i].dtime))} - {this.state.tables[this.state.orderslips[i].table_no-1].table_name !== undefined ? this.state.tables[this.state.orderslips[i].table_no-1].table_name: ""}</Badge></Card.Title>
                             <Card.Text style={{fontSize:15}}>
                               <ListGroup as="ul">
                                 {
@@ -706,12 +706,12 @@ class OrderSlipsSummaryN extends React.Component  {
                     </InputGroup.Text>
                     <Dropdown >
                       <Dropdown.Toggle variant="secondary" id="dropdown-basic" style={{width: "87%"}}>
-                      {this.state.orderslips[this.state.selectedorderslip] !== undefined ? (this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: ""): ""}
+                      {this.state.selectedorderslip !== 0 && this.state.orderslips[this.state.selectedorderslip] !== undefined ? (this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: ""): ""}
                       </Dropdown.Toggle>
                       <Dropdown.Menu>
                         {
                           Array.from(this.state.tables).map((_, index) => (
-                            <Dropdown.Item onClick={() => {updateOSTable(index+1,this.state.orderslips[this.state.selectedorderslip].os_no,() => {})}} href="#/action-1" key={this.state.tables[index]}>{this.state.tables[index].table_name}</Dropdown.Item>
+                            <Dropdown.Item onClick={() => {updateOSTable(index+1,this.state.orderslips[this.state.selectedorderslip].os_no,() => {})}} href="#/action-1" key={this.state.tables[index]}>{this.state.tables[index].table_name !== undefined ? this.state.tables[index].table_name: ""}</Dropdown.Item>
                           ))
                         }
                       </Dropdown.Menu>
@@ -795,6 +795,42 @@ class OrderSlipsSummaryN extends React.Component  {
                     </ListGroup.Item>): null
               })
                 }
+                <div className="d-none d-print-block" style={{ margin: "0", padding: "0", fontFamily: "Arial", fontSize: 6}} ref={el => (this.componentRef = el)}> {/*d-none d-print-block*/}
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>***************************</p>
+                        <p>TABLE: {this.state.selectedorderslip !== 0 && this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: null}</p>
+                        <p>TAKER: {this.state.selectedorderslip !== 0 && this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker] !== undefined ? this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker].name: null}</p>
+                        <p>**********ORDERS***********</p>
+
+                  {
+                  Array.from(this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].orders: 0).map((_,index) => {
+                    const orders = JSON.parse(this.state.orderslips[this.state.selectedorderslip].orders)
+                    
+                    return (orders !== undefined && orders[index] !== undefined && orders.length !== 0 && this.state.orderslips[this.state.selectedorderslip] !== undefined && orders[index].cancelled !== "1" && orders[index].cancelled !== 1) ? (
+                        <div>
+                          <div className='' style={{textAlign: 'center'}}>
+                          <p>{orders[index] != null ? orders[index].quantity: ""} pcs of -- **{orders[index] != null ? orders[index].item.name: "Select Item"}**</p> 
+                          </div>
+                        </div> 
+                    ): null
+                  })
+
+                }
+                <p>*************************</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                        <p>--</p>
+                    </div>  
                 </Container>
               </ListGroup>
             
@@ -810,6 +846,13 @@ class OrderSlipsSummaryN extends React.Component  {
             <Button variant="success" onClick={() => {
               this.modalDoneConfirmationToggle()
             }}>Billed</Button>
+            <ReactToPrint content={() => this.componentRef}>
+              <PrintContextConsumer>
+                {({ handlePrint }) => (
+                  <Button variant='warning' onClick={handlePrint}>Print</Button>
+                )}
+              </PrintContextConsumer>
+            </ReactToPrint>
           </Modal.Footer>
       </Modal>
 
@@ -843,12 +886,12 @@ class OrderSlipsSummaryN extends React.Component  {
                   <Col xs={6} md={4}>
                     <Dropdown>
                       <Dropdown.Toggle variant="secondary" id="dropdown-basic" style={{width: "100%"}}>
-                        {(this.state.newOSTable == {} || this.state.newOSTable.table_name == null) ? "Select Table": this.state.newOSTable.table_name} 
+                        {(this.state.newOSTable == {} || this.state.newOSTable.table_name === undefined || this.state.newOSTable.table_name == null) ? "Select Table": this.state.newOSTable.table_name} 
                       </Dropdown.Toggle>
                       <Dropdown.Menu>
                         {
                           Array.from(this.state.tables).map((_, index) => (
-                            <Dropdown.Item onClick={() => {this.setState({newOSTable: this.state.tables[index]})}} href="#/action-1" key={this.state.tables[index]}>{this.state.tables[index].table_name}</Dropdown.Item>
+                            <Dropdown.Item onClick={() => {this.setState({newOSTable: this.state.tables[index]})}} href="#/action-1" key={this.state.tables[index]}>{this.state.tables[index].table_name !== undefined ? this.state.tables[index].table_name: ""}</Dropdown.Item>
                           ))
                         }
                       </Dropdown.Menu>
@@ -1084,24 +1127,56 @@ class OrderSlipsSummaryN extends React.Component  {
               Please Repeat Orders
           </Modal.Title>
           <Modal.Body>
-                <ListGroup as="ul" style={{margin: 10, fontWeight: 'bolder'}} ref={el => (this.componentRef = el)}>
+                <div className="reset-style" style={{ margin: "0", padding: "0", fontFamily: "Arial"}}>
                     {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
                   {
                           Array(this.state.numberOfRows).fill(1).map((_,index) => this.state.orders[index] != null ? (
-                            <InputGroup className="mb-3">
-                                <p>{this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"} </p>
-                              <p>{this.state.orders[index] != null ? this.state.orders[index].quantity: ""}</p>
-                            </InputGroup>
+                            <div>
+                              <div className='' style={{textAlign: 'center'}}>
+                               <p>{this.state.orders[index] != null ? this.state.orders[index].quantity: ""} pcs of -- **{this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"}**</p> 
+                              </div>
+                            </div>
                           ): null)
                   }
                 
-                </ListGroup>
+                </div>
+                <div className="d-none d-print-block" style={{ margin: "0", padding: "0", fontFamily: "Arial", fontSize: 8}} ref={el => (this.componentRef = el)}>
+                    {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>***************************</p>
+                    <p>TABLE: {this.state.newOSTable.table_name !== undefined ? this.state.newOSTable.table_name: ""}</p>
+                    <p>TAKER: {this.state.newOSTaker.name !== undefined ? this.state.newOSTaker.name: ""}</p>
+                    <p>**********ORDERS***********</p>
+                  {
+                          Array(this.state.numberOfRows).fill(1).map((_,index) => this.state.orders[index] != null ? (
+                            <div>
+                              <div className='' style={{textAlign: 'center'}}>
+                               <p>{this.state.orders[index] != null ? this.state.orders[index].quantity: ""} pcs of -- **{this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"}**</p> 
+                              </div>
+                            </div>
+                          ): null)
+                  }
+                      <p>*************************</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                    <p>--</p>
+                </div>
           </Modal.Body>
           <Modal.Footer>
           <ReactToPrint content={() => this.componentRef}>
               <PrintContextConsumer>
                 {({ handlePrint }) => (
-                  <button onClick={handlePrint}>Print this out!</button>
+                  <Button variant='warning' onClick={handlePrint}>Print</Button>
                 )}
               </PrintContextConsumer>
             </ReactToPrint>

@@ -322,7 +322,7 @@ class ReservationsSummaryN extends React.Component  {
         orders: this.state.orders,
         notes: this.state.newresnote,
         service_time: new Date(this.state.newresdate + " " + this.state.newrestime),
-        table_no: this.state.newrestable.table_no,
+        table_no: this.state.newrestable.table_no + 1,
         os_no: 0,
         taker: this.state.newOSTaker.id,
         cancelled: 0,

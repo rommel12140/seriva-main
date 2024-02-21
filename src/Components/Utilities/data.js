@@ -72,6 +72,7 @@ export const AREA_ADMIN = 1
 export const AREA_FOH_RESTAURANT = 2
 export const AREA_KITCHEN_RESTAURANT = 3
 export const AREA_FOH_CAFE = 4
+export const AREA_COMMI = 5
 
 export const CAT_RESTAURANT = 1
 export const CAT_CAFE = 2
@@ -116,7 +117,7 @@ export const INV_BRK = 5
 export const INV_USED = 6
 
 export const TYPE_ARR = [1,2,3,4,5,6,7,8,9]
-export const AREA_ARR = [1,2,3,4]
+export const AREA_ARR = [1,2,3,4,5]
 export const ICAT_ARR = [1,2,3,4]
 export const CAT_ARR = [1,2,3]
 export const ST_ARR = [1,2,3]
@@ -203,6 +204,7 @@ export const AREA_STRING = (data) => {
         case AREA_FOH_RESTAURANT: return "FOH Restaurant";
         case AREA_KITCHEN_RESTAURANT: return "Kitchen Restaurant";
         case AREA_SUPERADMIN: return "Superadmin";
+        case AREA_COMMI: return "Commissary";
 
         default: return "N/A";
     }

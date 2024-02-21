@@ -4,7 +4,7 @@ import { Button, ButtonGroup, Col, Dropdown, Form, InputGroup, Modal, Row, Spinn
 import { useNavigate } from 'react-router';
 import { arrayToObject } from '../Utilities/timeconvert';
 import { addInventoryBatch, addItem, addSupplier, getEmployees, getInvItems, getInventory, getLastBatch, getServers, getSupplier } from '../Utilities/requests';
-import { AREA_ARR, AREA_STRING, ICAT_ARR, ICAT_STRING, INV_ARR, INV_STAT_ARR, INV_STAT_STRING, ST_ARR, ST_STRING, UNIT_ARR, UNIT_STRING } from '../Utilities/data';
+import { AREA_ARR, AREA_STRING, ICAT_ARR, ICAT_STRING, INV_ARR, INV_CM, INV_IN, INV_OUT, INV_STAT_ARR, INV_STAT_STRING, INV_WST, ST_ARR, ST_STRING, UNIT_ARR, UNIT_STRING } from '../Utilities/data';
 
 const ITEM_DEFAULT = {
     cat: -1,
@@ -22,6 +22,7 @@ class InventoryN extends React.Component  {
     modalAddItem: false,
     modalInvSum: false,
     inventory: {},
+    inventoryTotal: {},
     editor: -1,
     checker: -1,
     items: {},
@@ -31,6 +32,7 @@ class InventoryN extends React.Component  {
     newInventory: [],
     newItem: ITEM_DEFAULT,
     area: -1,
+    filterArea: -1,
     rows: 3,
     loading: false,
     notes: "No Notes",
@@ -50,8 +52,9 @@ class InventoryN extends React.Component  {
                         items: arrayToObject(responseItems.response),
                         suppliers: arrayToObject(responseSuppliers.response),
                         inventory: arrayToObject(responseInv.response),
+                        filterArea: -1,
                     },() => {
-                        
+                        this.calculateTotalInventoryItem()
                     })
                   })
             })
@@ -61,12 +64,63 @@ class InventoryN extends React.Component  {
   }
 
   calculateTotalInventoryItem(){
-    Object.keys(this.state.inventory).map((key,index) => {
-        
-    })
-    this.setState({
-
-    })
+    var tempInventory = {}
+    if(this.state.filterArea !== -1) {
+        const filteredInventory = arrayToObject(Object.values(this.state.inventory).filter((obj) => {
+                                        console.log(this.state.inventory)
+                                        return (Number(obj.area) === Number(this.state.filterArea));
+                                    }));
+        console.log(filteredInventory)
+        this.setState({inventoryTotal: {}}, () => {
+            Object.keys(filteredInventory !== undefined ? filteredInventory: {}).map((key,index) => {
+                const currentInventory = this.state.inventory[key]
+                const existing = tempInventory[currentInventory.item]
+                
+                if(Number(currentInventory.stat) === INV_IN){
+                    tempInventory[this.state.inventory[key].item] = {
+                        ...existing,
+                        total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
+                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                    }
+                } else {
+                    tempInventory[this.state.inventory[key].item] = {
+                        ...existing,
+                        total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
+                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                    }
+                }
+                
+                
+                console.log(tempInventory)
+            })
+            this.setState({inventoryTotal: tempInventory})
+        })
+    } else {
+        this.setState({inventoryTotal: {}}, () => {
+            Object.keys(this.state.inventory).map((key,index) => {
+                const currentInventory = this.state.inventory[key]
+                const existing = tempInventory[currentInventory.item]
+                
+                if(Number(currentInventory.stat) === INV_IN){
+                    tempInventory[this.state.inventory[key].item] = {
+                        ...existing,
+                        total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
+                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                    }
+                } else {
+                    tempInventory[this.state.inventory[key].item] = {
+                        ...existing,
+                        total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
+                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                    }
+                }
+                
+            })
+            this.setState({inventoryTotal: tempInventory})
+        })
+    }
+    
+    
   }
 
   toggleModalAddInv() {
@@ -163,13 +217,19 @@ class InventoryN extends React.Component  {
     return !(this.state.checker === -1 || this.state.editor === -1 || this.state.area === -1 )
   }
 
+  changeSummaryArea(data) {
+    this.setState({filterArea: data}, () => {
+        this.calculateTotalInventoryItem()
+    })
+  }
+
   render() {
     return (
         <div className="App">
             <div className="top-nav">
                 <Row style={{width: '100%', paddingTop: 5}}>
                     <Col sm>
-                        <Button style={{width: '90%'}} variant="light" onClick={() => this.props.navigate(-1)}>Back</Button>
+                        <Button style={{width:'90%', color: 'white'}} variant="secondary" href="/">Back</Button>
                     </Col>
                     <Col sm>
                         <Button style={{width: '90%'}} variant="dark" onClick={() => this.toggleModalInvSummary()}>Summary Inventory</Button>
@@ -183,49 +243,49 @@ class InventoryN extends React.Component  {
                 </Row>
                 
                 <div style={{marginTop: 30}}>
-        <Table responsive="sm" striped='columns' style={{textAlign: 'center', margin: 10, width: '90%'}}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Date Time</th>
-              <th>AREA</th>
-              <th>STATUS</th>
-              <th>ITEM</th>
-              <th>QUANTITY</th>
-              <th>UNIT</th>
-              <th>ADDED BY</th>
-              <th>CONFIRMED BY</th>
-              <th>BATCH</th>
-              
-              <th>NOTES</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.keys(this.state.inventory).map((key, index) => {
-                const inv = this.state.inventory[key]
-                return (
-                    <tr 
-                      onClick={() => {
-                        
-                      }}
-                      
-                    >
-                      <td>{inv.id}</td>
-                      <td>{inv.dt}</td>
-                      <td>{inv.area}</td>
-                      <td>{inv.stat}</td>
-                      <td>{this.state.items[inv.item].name}</td>
-                      <td>{inv.qty}</td>
-                      <td>{UNIT_STRING(Number(this.state.items[inv.item].unit))}</td>
-                      <td>{this.state.staff[inv.emp_no].name}</td>
-                      <td>{this.state.staff[inv.confirmed_by].name}</td>
-                      <td>{inv.batch}</td>
-                      <td>{inv.notes}</td>
-                    </tr>
-                )
-              })}
-          </tbody>
-        </Table>
+                    <Table responsive="sm" striped='columns' style={{textAlign: 'center', margin: 10, width: '90%'}}>
+                        <thead>
+                            <tr>
+                            <th>ID</th>
+                            <th>Date Time</th>
+                            <th>AREA</th>
+                            <th>STATUS</th>
+                            <th>ITEM</th>
+                            <th>QUANTITY</th>
+                            <th>UNIT</th>
+                            <th>ADDED BY</th>
+                            <th>CONFIRMED BY</th>
+                            <th>BATCH</th>
+                            
+                            <th>NOTES</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Object.keys(this.state.inventory).reverse().map((key, index) => {
+                                const inv = this.state.inventory[key]
+                                return (
+                                    <tr 
+
+                                        onClick={() => {
+                                            
+                                        }}
+                                    >
+                                        <td>{inv.id}</td>
+                                        <td>{inv.dt}</td>
+                                        <td>{AREA_STRING(Number(inv.area))}</td>
+                                        <td>{INV_STAT_STRING(Number(inv.stat))}</td>
+                                        <td>{this.state.items[inv.item].name}</td>
+                                        <td>{inv.qty}</td>
+                                        <td>{UNIT_STRING(Number(this.state.items[inv.item].unit))}</td>
+                                        <td>{this.state.staff[inv.emp_no].name}</td>
+                                        <td>{this.state.staff[inv.confirmed_by].name}</td>
+                                        <td>{inv.batch}</td>
+                                        <td>{inv.notes}</td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </Table>
                 </div>
                 
             </div>
@@ -238,9 +298,8 @@ class InventoryN extends React.Component  {
                                 Created By:
                             </InputGroup.Text>
                             <Dropdown>
-                            <Dropdown.Toggle disabled={this.state.loading} variant="dark" id="dropdown-basic" style={{width: "80%"}}>
-                                {(this.state.staff == {} || this.state.editor == -1) ? "Select": this.state.staff[this.state.editor].name} 
-                                
+                                <Dropdown.Toggle disabled={this.state.loading} variant="dark" id="dropdown-basic" style={{width: "80%"}}>
+                                    {(this.state.staff == {} || this.state.editor == -1) ? "Select": this.state.staff[this.state.editor].name}
                                 </Dropdown.Toggle>
                                 <Dropdown.Menu>
                                 {
@@ -466,8 +525,7 @@ class InventoryN extends React.Component  {
                     <Col xs={6} md={4}>
                         <Dropdown>
                             <Dropdown.Toggle variant="dark" id="dropdown-basic" style={{width: "100%"}}>
-                            {(this.state.newItem.supplier == -1) ? "Select Supplier": this.state.suppliers[this.state.newItem.supplier].name} 
-                            
+                                {(this.state.newItem.supplier == -1) ? "Select Supplier": this.state.suppliers[this.state.newItem.supplier].name}
                             </Dropdown.Toggle>
                             <Dropdown.Menu>
                             {
@@ -489,49 +547,52 @@ class InventoryN extends React.Component  {
         <Modal show={this.state.modalInvSum} fullscreen>
             <Modal.Title>
                 <p style={{textAlign: 'center'}}>Item Summary</p>
+                <Dropdown>
+                    <Dropdown.Toggle variant="dark" id="dropdown-basic" style={{width: "100%"}}>
+                        {(this.state.filterArea == -1) ? "Area": AREA_STRING(this.state.filterArea)} 
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu>
+                        <Dropdown.Item onClick={() => {this.changeSummaryArea(-1)}}>ALL</Dropdown.Item>
+                    {
+                        Array.from(AREA_ARR).map((_, index) => (<Dropdown.Item onClick={() => {this.changeSummaryArea(AREA_ARR[index])}}>{AREA_STRING(AREA_ARR[index])}</Dropdown.Item>))
+                    }
+                    </Dropdown.Menu>
+                </Dropdown>
             </Modal.Title>
             <Modal.Body>
                 <Row style={{margin: 5}}>
-                <Table responsive="sm" striped='columns' style={{textAlign: 'center', margin: 10, width: '90%'}}>
+                <Table responsive="sm" variant='dark' style={{textAlign: 'center', margin: 10, width: '90%'}}>
                     <thead>
                         <tr>
-                        <th>ID</th>
-                        <th>Date Time</th>
-                        <th>AREA</th>
-                        <th>STATUS</th>
-                        <th>ITEM</th>
-                        <th>QUANTITY</th>
-                        <th>UNIT</th>
-                        <th>ADDED BY</th>
-                        <th>CONFIRMED BY</th>
-                        <th>BATCH</th>
-                        
-                        <th>NOTES</th>
+                            <th>AREA</th>
+                            <th>ITEM</th>
+                            <th>IN</th>
+                            <th>OUT</th>
+                            <th>WASTAGE</th>
+                            <th>CREW MEAL</th>
+                            <th>TOTAL</th>
+                            <th>UNIT</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {Object.keys(this.state.inventory).map((key, index) => {
-                            const inv = this.state.inventory[key]
-                            return (
+                        {Object.keys(this.state.inventoryTotal).map((key, index) => {
+                            const inv = this.state.inventoryTotal[key]
+                            return this.state.items[key] !== undefined ? (
                                 <tr 
                                 onClick={() => {
                                     
                                 }}
-                                
                                 >
-                                <td>{inv.id}</td>
-                                <td>{inv.dt}</td>
-                                <td>{inv.area}</td>
-                                <td>{inv.stat}</td>
-                                <td>{this.state.items[inv.item].name}</td>
-                                <td>{inv.qty}</td>
-                                <td>{UNIT_STRING(Number(this.state.items[inv.item].unit))}</td>
-                                <td>{this.state.staff[inv.emp_no].name}</td>
-                                <td>{this.state.staff[inv.confirmed_by].name}</td>
-                                <td>{inv.batch}</td>
-                                <td>{inv.qty}</td>
+                                <td>{this.state.items[key].area}</td>
+                                <td>{this.state.items[key].name}</td>
+                                <td>{inv[INV_IN]}</td>
+                                <td style={{color: 'red'}}>{inv[INV_OUT]}</td>
+                                <td style={{color: 'red'}}>{inv[INV_WST]}</td>
+                                <td style={{color: 'red'}}>{inv[INV_CM]}</td>
+                                <td style={{color: inv.total > 2 ? inv.total > 10 ? 'green': 'yellow':'red'}}>{inv.total}</td>
+                                <td>{UNIT_STRING(Number(this.state.items[key].unit))}</td>
                                 </tr>
-                            )
+                            ): null
                         })}
                     </tbody>
                 </Table>

@@ -267,7 +267,7 @@ class CafeViewSummaryN extends React.Component  {
         <div className="top-nav">
           <Row>
             <Col xs={6} md={4}>
-              <Button style={{margin: 10, width:'100%', color: 'white'}} variant="secondary" onClick={() => this.props.navigate(-1)}>Back</Button>
+              <Button style={{margin: 10, width:'100%', color: 'white'}} variant="secondary" href="/">Back</Button>
             </Col>
             <Col xs={6} md={4}>
               <Button style={{margin: 10, width:'100%', color: 'Green'}} variant="light" onClick={() => this.props.navigate(-1)}>History</Button>

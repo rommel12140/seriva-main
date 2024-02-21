@@ -70,3 +70,41 @@
     transform: rotate(360deg);
   }
 }
+
+@media all {
+  .page-break {
+    display: none;
+    font-size: 2;
+  }
+}
+
+@media print {
+  html, body {
+    height: '100%'; /* Use 100% here to support printing more than a single page*/
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    font-size: 2 !important;
+  }
+}
+
+@media print {
+  .scroll-container {
+    overflow: visible;
+    height: fit-content;
+  }
+}
+
+@media print {
+  .page-break {
+    margin-top: 1rem;
+    display: block;
+    page-break-before: auto;
+  }
+}
+
+@media print { body.receipt { width: 58mm } } /* fix for Chrome */
+
+.reset-style, .reset-style * {
+  all: revert;
+}
