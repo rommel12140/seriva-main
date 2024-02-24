@@ -1,6 +1,6 @@
 import React from 'react';
 import '../../App.css';
-import { Card, Button, Col, Row, Modal, Alert, Badge, ListGroup, Container, Form, Dropdown, InputGroup, DropdownButton, ButtonGroup, Accordion, ModalFooter } from 'react-bootstrap';
+import { Card, Button, Col, Row, Modal, Alert, Badge, ListGroup, Container, Form, Dropdown, InputGroup, DropdownButton, ButtonGroup, Accordion, ModalFooter, Tabs, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
 import { arrayToObject, dateConvert, getStringDate, tConvert, tConvertHM, tSQLConvert } from '../Utilities/timeconvert';
 import { CAT_ARR, CAT_CAFE, CAT_RESTAURANT, CAT_STRING, TYPE_ARR, TYPE_STRING, getNowDate, menu, tables, taker } from '../Utilities/data';
@@ -8,6 +8,7 @@ import { addMenu, addOrderSlip, billedAllOrders, cancelOrderFromOS, cancelOrderS
 import { toWords } from 'number-to-words';
 import { format } from 'date-fns';
 import ReactToPrint, { PrintContextConsumer } from 'react-to-print';
+import { getLoyverseItems, getLoyverseoauth } from '../Utilities/loyverseRequest';
 
 const SAMPLE_FOOD = [
   {
@@ -97,7 +98,6 @@ class OrderSlipsSummaryN extends React.Component  {
   
   componentDidMount() {
     this.getCurrentTime()
-    
     getServers((responseEmployees) => {
       getTables((responseTables) => {
         getAvailableMenu((responseFood) => {
@@ -466,7 +466,6 @@ class OrderSlipsSummaryN extends React.Component  {
         modalNewOSShow: true,
         orders: tempOrders,
         currentorder: {},
-        numberOfRows: this.state.numberOfRows === this.state.orders.length + 1 ? this.state.numberOfRows + 1: this.state.numberOfRows
       }, () => {
         getOrderSlips((responseOS) => {
           this.setState({
@@ -511,6 +510,7 @@ class OrderSlipsSummaryN extends React.Component  {
 
     this.setState({
       orders: tempOrders,
+      numberOfRows: this.state.numberOfRows - 1
     })
   }
   
@@ -539,7 +539,7 @@ class OrderSlipsSummaryN extends React.Component  {
                         
                         Array.from(this.state.reservations).map((_, index) => (
                           <ListGroup.Item onClick={() => { this.setState({selectedIndex: index}, () => { this.modalResToggle() })}}>
-                            {getStringDate(new Date(this.state.reservations[index].service_time),"/") + " - " + tConvertHM(dateConvert(new Date(this.state.reservations[index].service_time))) + " - " + this.state.reservations[index].res_name + " - " + this.state.tables[this.state.reservations[index].table_no-1].table_name + " - " + this.state.reservations[index].pax + " PAX"}
+                            {getStringDate(new Date(this.state.reservations[index].service_time),"/") + " - " + tConvertHM(dateConvert(new Date(this.state.reservations[index].service_time))) + " - " + this.state.reservations[index].res_name + " - " + (this.state.tables[this.state.reservations[index].table_no-1].table_name) + " - " + this.state.reservations[index].pax + " PAX"}
                           </ListGroup.Item>
                         ))
                       }
@@ -978,7 +978,31 @@ class OrderSlipsSummaryN extends React.Component  {
               </Col>
               <Col xs={6} md={9} >
                 <Row style={{overflowY: 'scroll', height: '500px'}}>
-                  {
+                      <Tabs
+                        defaultActiveKey="profile"
+                        id="uncontrolled-tab-example"
+                        className="mb-3"
+                      > 
+                        {
+                          Array.from(TYPE_ARR).map((_,index) => (
+                            <Tab eventKey={TYPE_ARR[index]} title={TYPE_STRING(TYPE_ARR[index])}>
+                              <Row>
+                                {Array.from(this.state.food).map((_,key) => {
+                                      const food = this.state.food
+                                      return this.state.food[index] !== undefined && this.state.food[key].type == TYPE_ARR[index] ? (<Card onClick={() => {this.saveOrder(key)}} style={{color: "white", height: 70, width: 140, margin: 1, backgroundColor: food[key].cat == 1 ? "#033500": "#231709"}}>
+                                        <Card.Body>
+                                            <Card.Title style={{fontSize:15}}>{food[key] !== undefined ? food[key].name: ""} </Card.Title>
+                                        </Card.Body>
+                                      </Card> ): null
+                                }            
+                                )}
+                              </Row>
+                              
+                            </Tab>
+                          ))
+                        }
+                      </Tabs>
+                  {/* {
                         Array.from(this.state.food).map((_,key) => (
                           
                             <Card onClick={() => {this.saveOrder(key)}} style={{color: "white", height: 70, width: 140, margin: 1, backgroundColor: this.state.food[key].cat == 1 ? "#033500": "#231709"}}>
@@ -989,7 +1013,7 @@ class OrderSlipsSummaryN extends React.Component  {
                           
                                       
                         ))
-                  }
+                  } */}
                   </Row>
               </Col>
             </Row>
@@ -1056,7 +1080,7 @@ class OrderSlipsSummaryN extends React.Component  {
                   </Col>
                   <Col xs={6} md={2}> Table: </Col>
                   <Col xs={6} md={4}>
-                    <Form.Control disabled type="text" value={this.state.selectedIndex != -1 ? this.state.tables[this.state.reservations[this.state.selectedIndex].table_no].table_name: 0} />
+                    <Form.Control disabled type="text" value={this.state.selectedIndex != -1 ? this.state.tables[this.state.reservations[this.state.selectedIndex].table_no-1].table_name: 0} />
                   </Col>
                 </Row>
                 <Row style={{marginBottom: 10}}>

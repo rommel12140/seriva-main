@@ -321,7 +321,7 @@ class HistoryViewSummaryN extends React.Component  {
             </tr>
           </thead>
           <tbody>
-            {Array.from(this.state.orderslips).map((_, index) => {
+            {Array.from(this.state.orderslips.reverse()).map((_, index) => {
                 const os = this.state.orderslips[index]
                 return (
                     <tr 

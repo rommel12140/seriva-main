@@ -46,6 +46,17 @@ export function tSQLConvert(date) {
   return d;
 }
 
+export function tSQLConvertD(date) {
+  // Split timestamp into [ Y, M, D, h, m, s ]
+
+  var t = date.split(/[- :]/);
+  
+  // Apply each element to the Date function
+  var d = new Date(Date.UTC(t[0], t[1]-1, t[2]));
+  
+  return d;
+}
+
 export function arrayToObject(array) {
   const target = {}; 
   array.forEach((key, index) => target[array[index].id] = array[index]);

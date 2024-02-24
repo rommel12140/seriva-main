@@ -1,6 +1,6 @@
 import axios, { Axios } from "axios";
 import { format } from "date-fns";
-import { getStringDate } from "./timeconvert";
+import { getStringDate, tSQLConvert, tSQLConvertD } from "./timeconvert";
 
 const POST_METHOD = "POST"
 const GET_METHOD = "GET"
@@ -436,7 +436,7 @@ export async function addSupplier(name, callback) {
     })
 }
 
-export async function addInventoryBatch(batch, length, notes, inventory, checker, editor, area, status, callback) {
+export async function addInventoryBatch(batch, length, notes, inventory, checker, editor, area, status,batch_date, callback) {
     var formData = new FormData();
     if(length !== 0) {
         
@@ -450,11 +450,12 @@ export async function addInventoryBatch(batch, length, notes, inventory, checker
         formData.append("confirmed_by", checker)
         formData.append("batch", batch)
         formData.append("area", area)
+        formData.append("batch_date", format(new Date(batch_date), 'yyyy-MM-dd'))
         
         fetch(POST_METHOD, API_INV_POST, formData, (responseFetch) => {
             const response = responseFetch.response
             console.log("sent")
-            addInventoryBatch(batch, length-1, notes, inventory, checker, editor, area, status, (response) => {
+            addInventoryBatch(batch, length-1, notes, inventory, checker, editor, area, status,batch_date, (response) => {
                 callback({response: length})
             })
         })
@@ -480,7 +481,7 @@ export async function addReservations(res, callback) {
     formData.append("orders", JSON.stringify(filterOrders))
     formData.append("notes", res.notes)
     formData.append("service_time", format(new Date(res.service_time), 'yyyy/MM/dd kk:mm:ss'))
-    formData.append("table_no", res.table_no)
+    formData.append("table_no", res.table_no <= 0 && res.table_no >= 31 ? 31: res.table_no)
     formData.append("os_no", 0)
     formData.append("taker", res.taker)
     formData.append("cancelled", res.cancelled)
@@ -495,6 +496,7 @@ export async function addReservations(res, callback) {
 
 async function fetch(method, api, params, callback){
     const dbAPI = "seriva-resort-main/"
+
     if(method == "GET") {
         await axios.get(getIPAddress + dbAPI + api, params).then((response)=>{
             callback({response: response})

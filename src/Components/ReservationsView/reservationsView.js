@@ -67,7 +67,7 @@ class ReservationsSummaryN extends React.Component  {
     modalNewOSQty: false,
     modalConfirmation: false,
     selectedorderslip: 0,
-    newrestable: 0,
+    newrestable: 31,
     newOSTaker: 0,
     orderslips: ORDERSLIPDEFAULT,
     food: menu,

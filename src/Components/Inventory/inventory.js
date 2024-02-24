@@ -4,7 +4,8 @@ import { Button, ButtonGroup, Col, Dropdown, Form, InputGroup, Modal, Row, Spinn
 import { useNavigate } from 'react-router';
 import { arrayToObject } from '../Utilities/timeconvert';
 import { addInventoryBatch, addItem, addSupplier, getEmployees, getInvItems, getInventory, getLastBatch, getServers, getSupplier } from '../Utilities/requests';
-import { AREA_ADMIN, AREA_ARR, AREA_COMMI, AREA_FOH_CAFE, AREA_FOH_RESTAURANT, AREA_KITCHEN_RESTAURANT, AREA_STRING, CAT_CAFE, CAT_RESTAURANT, ICAT_ARR, ICAT_CAFE, ICAT_KIT, ICAT_RES, ICAT_STRING, INV_ARR, INV_CM, INV_IN, INV_OUT, INV_STAT_ARR, INV_STAT_STRING, INV_WST, ST_ARR, ST_STRING, UNIT_ARR, UNIT_STRING } from '../Utilities/data';
+import { AREA_ADMIN, AREA_ARR, AREA_COMMI, AREA_FOH_CAFE, AREA_FOH_RESTAURANT, AREA_KITCHEN_RESTAURANT, AREA_STRING, CAT_CAFE, CAT_RESTAURANT, ICAT_ARR, ICAT_CAFE, ICAT_KIT, ICAT_RES, ICAT_STRING, INV_ARR, INV_CM, INV_IN, INV_OUT, INV_PORTION, INV_STAT_ARR, INV_STAT_STRING, INV_WST, ST_ARR, ST_STRING, UNIT_ARR, UNIT_STRING } from '../Utilities/data';
+import { format } from 'date-fns';
 
 const ITEM_DEFAULT = {
     cat: -1,
@@ -38,6 +39,8 @@ class InventoryN extends React.Component  {
     loading: false,
     notes: "No Notes",
     areaitems: {},
+    batchdate: null,
+    currentdate: new Date(new Date().setDate(new Date().getDate()-1)),
   }
   
   componentDidMount() {
@@ -66,6 +69,14 @@ class InventoryN extends React.Component  {
     
   }
 
+  setCurrentDate(date){
+    this.setState({
+        currentdate: date,
+    }, () => {
+        this.calculateTotalInventoryItem()
+    })
+  }
+
   calculateTotalInventoryItem(){
     var tempInventory = {}
     if(this.state.filterArea !== -1) {
@@ -76,18 +87,40 @@ class InventoryN extends React.Component  {
             Object.keys(filteredInventory !== undefined ? filteredInventory: {}).map((key,index) => {
                 const currentInventory = this.state.inventory[key]
                 const existing = tempInventory[currentInventory.item]
+                const batchD = format(new Date(currentInventory.batch_date), 'yyyy-MM-dd')
+                const currentD = format(this.state.currentdate, 'yyyy-MM-dd')
                 
-                if(Number(currentInventory.stat) === INV_IN){
-                    tempInventory[this.state.inventory[key].item] = {
-                        ...existing,
-                        total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
-                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
-                    }
-                } else {
-                    tempInventory[this.state.inventory[key].item] = {
-                        ...existing,
-                        total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
-                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                if(new Date(currentD).getTime() >= new Date(batchD).getTime()){
+                    if(batchD !== currentD) {
+                        
+                        if(Number(currentInventory.stat) === INV_IN){
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
+                                beginning: Number(existing !== undefined ? existing.beginning !== undefined ? existing.beginning: 0: 0) + Number(currentInventory.qty)
+                            }
+                        } else {
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
+                                beginning: Number(existing !== undefined ? existing.beginning !== undefined ? existing.beginning: 0: 0) - Number(currentInventory.qty)
+                            }
+                            
+                        }
+                    } else {
+                        if(Number(currentInventory.stat) === INV_IN){
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
+                                [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                            }
+                        } else {
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
+                                [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                            }
+                        }
                     }
                 }
             })
@@ -98,18 +131,40 @@ class InventoryN extends React.Component  {
             Object.keys(this.state.inventory).map((key,index) => {
                 const currentInventory = this.state.inventory[key]
                 const existing = tempInventory[currentInventory.item]
-                
-                if(Number(currentInventory.stat) === INV_IN){
-                    tempInventory[this.state.inventory[key].item] = {
-                        ...existing,
-                        total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
-                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
-                    }
-                } else {
-                    tempInventory[this.state.inventory[key].item] = {
-                        ...existing,
-                        total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
-                        [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                const batchD = format(new Date(currentInventory.batch_date), 'yyyy-MM-dd')
+                const currentD = format(this.state.currentdate, 'yyyy-MM-dd')
+
+                if(new Date(currentD).getTime() >= new Date(batchD).getTime()){
+                    if(batchD !== currentD) {
+                        
+                        if(Number(currentInventory.stat) === INV_IN){
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
+                                beginning: Number(existing !== undefined ? existing.beginning !== undefined ? existing.beginning: 0: 0) + Number(currentInventory.qty)
+                            }
+                        } else {
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
+                                beginning: Number(existing !== undefined ? existing.beginning !== undefined ? existing.beginning: 0: 0) - Number(currentInventory.qty)
+                            }
+                            
+                        }
+                    } else {
+                        if(Number(currentInventory.stat) === INV_IN){
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) + Number(currentInventory.qty), 
+                                [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                            }
+                        } else {
+                            tempInventory[this.state.inventory[key].item] = {
+                                ...existing,
+                                total: Number(existing !== undefined ? existing.total: 0) - Number(this.state.inventory[key].qty), 
+                                [currentInventory.stat]: Number(existing !== undefined ? existing[currentInventory.stat] !== undefined ? existing[currentInventory.stat]: 0: 0) + Number(currentInventory.qty)
+                            }
+                        }
                     }
                 }
                 
@@ -163,6 +218,7 @@ class InventoryN extends React.Component  {
     this.reload()
     this.setState({
         modalInvSum: this.state.modalInvSum ? false: true,
+        batchdate: null,
     })
   }
 
@@ -197,7 +253,7 @@ class InventoryN extends React.Component  {
     }, () => {
         getLastBatch((responseBatch) => {
             const batch = responseBatch.response[0] !== undefined ? Number(responseBatch.response[0].batch) + 1: 1
-            addInventoryBatch(batch, filteredArray.length,this.state.notes,filteredArray,this.state.checker,this.state.editor,this.state.area,this.state.status, (resp) => {
+            addInventoryBatch(batch, filteredArray.length,this.state.notes,filteredArray,this.state.checker,this.state.editor,this.state.area,this.state.status,this.state.batchdate, (resp) => {
                 this.setState({
                     loading: false,
                 })
@@ -207,6 +263,12 @@ class InventoryN extends React.Component  {
                 })
             })
         })
+    })
+  }
+
+  setBatchDate(date) {
+    this.setState({
+        batchdate: date,
     })
   }
 
@@ -237,7 +299,7 @@ class InventoryN extends React.Component  {
   }
 
   checkInvFields() {
-    return !(this.state.checker === -1 || this.state.editor === -1 || this.state.area === -1 )
+    return !(this.state.checker === -1 || this.state.editor === -1 || this.state.area === -1 || this.state.batchdate === null )
   }
 
   changeSummaryArea(data) {
@@ -263,6 +325,10 @@ class InventoryN extends React.Component  {
                     <Col sm>
                         <Button style={{width: '90%', color: 'white'}} variant="info" onClick={() => this.toggleModalAddItem()}>Add Item</Button>
                     </Col>
+                </Row>
+                <Row  style={{margin: 10, width: '25%', alignItems: 'center'}}>
+                    BATCH DATE:
+                    <Form.Control type="date" value={this.state.batchdate} onChange={(text) => {this.setBatchDate(text.target.value)}} />
                 </Row>
                 
                 <div style={{marginTop: 30}}>
@@ -385,6 +451,18 @@ class InventoryN extends React.Component  {
                                 </Dropdown.Menu>
                             </Dropdown>
                         </InputGroup>
+                        </Col>
+                </Row>
+                <Row sm style={{padding: 10}}>
+                    <Col sm>
+                        <InputGroup className="mb-3">
+                            <InputGroup.Text id="inputGroup-sizing-default">
+                                Batch Date:
+                            </InputGroup.Text>
+                            <Form.Control  type="date" value={this.state.batchdate} onChange={(text) => {this.setBatchDate(text.target.value)}} />
+                        </InputGroup>
+                    </Col>
+                    <Col sm>
                         </Col>
                 </Row>
                 
@@ -570,6 +648,14 @@ class InventoryN extends React.Component  {
         <Modal show={this.state.modalInvSum} fullscreen>
             <Modal.Title>
                 <p style={{textAlign: 'center'}}>Item Summary</p>
+                <Row>
+                    <InputGroup className="mb-3">
+                    <InputGroup.Text id="inputGroup-sizing-default">
+                        Batch Date:
+                    </InputGroup.Text>
+                        <Form.Control  type="date" value={this.state.currentdate} onChange={(text) => {this.setCurrentDate(text.target.value)}} />
+                    </InputGroup>
+                </Row>
                 <Dropdown>
                     <Dropdown.Toggle variant="dark" id="dropdown-basic" style={{width: "100%"}}>
                         {(this.state.filterArea == -1) ? "Area": AREA_STRING(this.state.filterArea)} 
@@ -581,6 +667,7 @@ class InventoryN extends React.Component  {
                     }
                     </Dropdown.Menu>
                 </Dropdown>
+                FOR DATE: {format(this.state.currentdate, 'MM/dd/yyyy' )} {format(new Date(new Date().setDate(new Date().getDate()-1)), 'MM/dd/yyyy') === format(this.state.currentdate, 'MM/dd/yyyy') ? "**YESTERDAY**": ""}
             </Modal.Title>
             <Modal.Body>
                 <Row style={{margin: 5}}>
@@ -589,10 +676,12 @@ class InventoryN extends React.Component  {
                         <tr>
                             <th>AREA</th>
                             <th>ITEM</th>
+                            <th>BEGINNING</th>
                             <th>IN</th>
                             <th>OUT</th>
                             <th>WASTAGE</th>
                             <th>CREW MEAL</th>
+                            <th>PORTION</th>
                             <th>TOTAL</th>
                             <th>UNIT</th>
                         </tr>
@@ -608,10 +697,12 @@ class InventoryN extends React.Component  {
                                 >
                                 <td>{this.state.items[key].area}</td>
                                 <td>{this.state.items[key].name}</td>
+                                <td>{inv.beginning}</td>
                                 <td>{inv[INV_IN]}</td>
                                 <td style={{color: 'red'}}>{inv[INV_OUT]}</td>
                                 <td style={{color: 'red'}}>{inv[INV_WST]}</td>
                                 <td style={{color: 'red'}}>{inv[INV_CM]}</td>
+                                <td style={{color: 'red'}}>{inv[INV_PORTION]}</td>
                                 <td style={{color: inv.total > 2 ? inv.total > 10 ? 'green': 'yellow':'red'}}>{inv.total}</td>
                                 <td>{UNIT_STRING(Number(this.state.items[key].unit))}</td>
                                 </tr>

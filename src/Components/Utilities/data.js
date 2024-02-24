@@ -116,6 +116,7 @@ export const INV_CM = 4
 export const INV_BRK = 5
 export const INV_USED = 6
 export const INV_LOST = 7
+export const INV_PORTION = 8
 
 export const TYPE_ARR = [1,2,3,4,5,6,7,8,9]
 export const AREA_ARR = [1,2,3,4,5]
@@ -123,7 +124,7 @@ export const ICAT_ARR = [1,2,3,4]
 export const CAT_ARR = [1,2,3]
 export const ST_ARR = [1,2,3]
 export const UNIT_ARR = [1,2,3,4,5,6]
-export const INV_STAT_ARR = [1,2,3,4,5,6,7]
+export const INV_STAT_ARR = [1,2,3,4,5,6,7,8]
 
 export const CAT_STRING = (data) => {
     switch(data) {
@@ -194,6 +195,7 @@ export const INV_STAT_STRING = (data) => {
         case INV_USED: return "Used";
         case INV_WST: return "Wastage";
         case INV_LOST: return "LOST/UNTRACED";
+        case INV_PORTION : return "PORTION";
 
         default: return "N/A";
     }

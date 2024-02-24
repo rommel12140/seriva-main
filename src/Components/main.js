@@ -1,9 +1,32 @@
 import '../App.css';
 import { Card, Button, Col, Row } from 'react-bootstrap';
 import React from 'react';
+import { getLoyverseAuth, getLoyverseItems, getLoyverseoauth } from './Utilities/loyverseRequest';
 
 export default class Main extends React.Component {
-  
+
+  state = {
+    isLoggedIn: false
+  }
+
+  componentDidMount() {
+    const authorizationCode = new URLSearchParams(window.location.search).get('code')
+    if(authorizationCode !== null){
+      getLoyverseAuth(authorizationCode,(response) => {
+        console.log(response.response)
+        getLoyverseItems(response.response,(respItm) => {
+          console.log(respItm.response)
+        })
+      })
+    }
+  }
+
+  logIn() {
+    getLoyverseoauth(() => {
+      
+    })
+  }
+
   render() {
     return (
     <div className="App">
@@ -82,6 +105,18 @@ export default class Main extends React.Component {
                   </Card.Body>
                   <Card.Footer>
                     <Button variant="success" className='card-button-dimensions' href="/inventory">Inventory</Button>
+                  </Card.Footer>
+              </Card>
+              <Card className='card-dimensions' style={{height: 250, margin: 10}}>
+                  <Card.Body>
+                      <Card.Title style={{fontWeight:'bold'}}>Synchronize Log-in</Card.Title>
+                      <Card.Text>
+                        Sync
+                      </Card.Text>
+                      
+                  </Card.Body>
+                  <Card.Footer>
+                    <Button variant="success" className='card-button-dimensions' onClick={() => {this.logIn()}}>Synchronize</Button>
                   </Card.Footer>
               </Card>
             </Col>
