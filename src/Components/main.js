@@ -107,7 +107,7 @@ export default class Main extends React.Component {
                     <Button variant="success" className='card-button-dimensions' href="/inventory">Inventory</Button>
                   </Card.Footer>
               </Card>
-              <Card className='card-dimensions' style={{height: 250, margin: 10}}>
+              <Card hidden className='card-dimensions' style={{height: 250, margin: 10}}>
                   <Card.Body>
                       <Card.Title style={{fontWeight:'bold'}}>Synchronize Log-in</Card.Title>
                       <Card.Text>

@@ -40,16 +40,7 @@ const PLACEHOLDER_OS = {
   cancelled: "1",
 }
 
-const ORDERSLIPDEFAULT = [{
-  os_no: "null",
-  dtime: new Date(),
-  taker: 0,
-  orders: SAMPLE_ORDER,
-  table_no: 0,
-  requests: "",
-  donetime: "",
-  cancelled: true,
-}]
+const ORDERSLIPDEFAULT = []
 
 
 class HistoryViewSummaryN extends React.Component  {
@@ -59,6 +50,7 @@ class HistoryViewSummaryN extends React.Component  {
     currenttime: 0,
     modalOSShow: false,
     modalStatShow: false,
+    modalSales: false,
     selectedorderslip: 0,
     newOSTable: 0,
     newOSTaker: 0,
@@ -76,6 +68,8 @@ class HistoryViewSummaryN extends React.Component  {
     modalResShow: false,
     employees: [],
     adminpass: false,
+    sales: {},
+    dateselect: format(new Date(), 'yyyy-MM-dd')
   }
   
   componentDidMount() {
@@ -208,7 +202,6 @@ class HistoryViewSummaryN extends React.Component  {
         orderslips: resp,
       }, () => {
         setTimeout(() => this.loadOrderSlips(), 10000)
-        
       })
     })
   }
@@ -223,6 +216,14 @@ class HistoryViewSummaryN extends React.Component  {
     this.setState({
       modalOSShow: this.state.modalOSShow ? false: true,
     })
+  }
+
+  changeServer = () => {
+    if (localStorage.getItem("api") == "true"){
+      localStorage.setItem("api", "false")
+    } else {
+      localStorage.setItem("api", "true")
+    }
   }
 
   getCurrentTime = () => {
@@ -286,10 +287,49 @@ class HistoryViewSummaryN extends React.Component  {
         })
       }
     }
-    
+  }
 
-    
-    
+  getMenuName(id){
+    const index = this.state.food.findIndex(obj => {
+      return obj.menu_id == id;
+    });
+    return index !== -1 ? this.state.food[index].name: id
+  }
+
+  toggleModalSales() {
+    this.computeSales()
+    this.setState({
+      modalSales: this.state.modalSales ? false: true,
+    })
+  }
+
+  computeSales() {
+    this.setState({sales: {}}, () => {
+      var sales = {}
+      var dtime = this.state.dateselect
+  
+      var orderslips = this.state.orderslips.filter(item => { 
+        return format(new Date(item.dtime), 'yyyy-MM-dd') == dtime
+      });
+  
+      Array.from(orderslips).map((_,index) => {
+        if (orderslips[index].cancelled != 1){
+          const orders = JSON.parse(orderslips[index].orders)
+          Array.from(orders).map((_, j) => {
+            var order = orders[j]
+            var menuid = order.item.menu_id
+            if(order.cancelled != 1) {
+              sales[menuid] = sales[menuid] !== undefined ? Number(sales[menuid])+Number(order.quantity): Number(order.quantity)
+            }
+            
+          })
+        }
+        
+      })
+      this.setState({
+        sales: sales,
+      })
+    })
   }
 
   render() {
@@ -303,6 +343,9 @@ class HistoryViewSummaryN extends React.Component  {
             </Col>
             <Col sm>
             <Button style={{margin: 10, width:'90%', color: 'white'}} variant="primary" onClick={() => this.toggleModalStat()}>Statistics</Button>
+            </Col>
+            <Col sm>
+              <Button style={{margin: 10, width:'90%', color: 'white'}} variant="dark" onClick={() => this.toggleModalSales()}>Day Sales</Button>
             </Col>
           </Row>
         <div>
@@ -545,6 +588,27 @@ class HistoryViewSummaryN extends React.Component  {
           <Modal.Footer>
             <Button style={{width: "100%"}} variant="secondary" onClick={() => this.toggleModalStat()}>Close</Button>
           </Modal.Footer>
+      </Modal>
+      <Modal size='lg' show={this.state.modalSales}>
+        <Modal.Title>
+                  Daily Sales
+                  <InputGroup>
+                  <InputGroup.Text id="inputGroup-sizing-default">
+                        Batch Date:
+                  </InputGroup.Text>
+                  <Form.Control  type="date" value={this.state.dateselect} onChange={(text) => {
+                    this.setState({ dateselect: format(new Date(text.target.value), 'yyyy-MM-dd')}, () => {this.computeSales()})
+                  }} />
+                  </InputGroup>
+        </Modal.Title>
+        <Modal.Body>
+              {Object.keys(this.state.sales).map((key,index) => {
+                  return ((<p>{this.getMenuName(key)}: {this.state.sales[key]}</p>))
+              })}
+        </Modal.Body>
+        <Modal.Footer>
+              <Button variant='danger' onClick={() => {this.toggleModalSales()}}> CLOSE </Button>
+        </Modal.Footer>
       </Modal>
     </div>
     )

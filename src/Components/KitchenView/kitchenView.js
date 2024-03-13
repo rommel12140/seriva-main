@@ -335,11 +335,11 @@ class KitchenViewSummaryN extends React.Component  {
                     <ListGroup style={{marginBottom: 10}}>
                       {
                         
-                        Array.from(this.state.reservations).map((_, index) => (
+                        Array.from(this.state.reservations).map((_, index) => this.state.tables[this.state.reservations[index].table_no-1] !== undefined ? (
                           <ListGroup.Item onClick={() => { this.setState({selectedIndex: index}, () => { this.modalResToggle() })}}>
                             {getStringDate(new Date(this.state.reservations[index].service_time),"/") + " - " + tConvertHM(dateConvert(new Date(this.state.reservations[index].service_time))) + " - " + this.state.reservations[index].res_name + " - " + this.state.tables[this.state.reservations[index].table_no-1].table_name + " - " + this.state.reservations[index].pax + " PAX"}
                           </ListGroup.Item>
-                        ))
+                        ): null)
                       }
                     </ListGroup>
                   </Accordion.Body>

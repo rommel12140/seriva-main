@@ -322,7 +322,7 @@ class ReservationsSummaryN extends React.Component  {
         orders: this.state.orders,
         notes: this.state.newresnote,
         service_time: new Date(this.state.newresdate + " " + this.state.newrestime),
-        table_no: this.state.newrestable.table_no + 1,
+        table_no: Number(this.state.newrestable.table_no) + 1,
         os_no: 0,
         taker: this.state.newOSTaker.id,
         cancelled: 0,
@@ -765,7 +765,7 @@ class ReservationsSummaryN extends React.Component  {
           </Modal.Footer>
       </Modal>
 
-        {/*SHOW BILLED MODAL*/}
+        {/*SHOW CONFIRM MODAL*/}
         <Modal size='lg' show={this.state.modalConfirmation}>
           <Modal.Header>
             <Modal.Title style={{justifyContent: "center"}}>

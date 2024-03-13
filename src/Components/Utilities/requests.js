@@ -43,7 +43,7 @@ const API_SUPPLIER_POST = "addSupplier.php"
 const API_INV_POST = "addInventory.php"
 const API_RES_POST = "addReservation.php"
 
-export const getIPAddress = "http://192.168.68.123/"
+var getIPAddress = "http://192.168.68.123/"
 
 export async function getInvItems(callback) {
     fetch(GET_METHOD, API_INV_ITEMS_GET, null, (responseFetch) => {
@@ -366,7 +366,7 @@ export async function addOrderSlip(order, callback) {
      
     var formData = new FormData();
     formData.append("os_no", 0)
-    formData.append("dtime", format(new Date(), 'yyyy/MM/dd kk:mm:ss'))
+    formData.append("dtime", format(new Date(order.dtime), 'yyyy/MM/dd kk:mm:ss'))
     formData.append("taker", order.taker)
     formData.append("orders", JSON.stringify(filterOrders))
     formData.append("table_no", order.table)
@@ -496,20 +496,38 @@ export async function addReservations(res, callback) {
 
 async function fetch(method, api, params, callback){
     const dbAPI = "seriva-resort-main/"
-
-    if(method == "GET") {
-        await axios.get(getIPAddress + dbAPI + api, params).then((response)=>{
-            callback({response: response})
-        }).catch((error) => {
-            console.log(error)
-        })
-    } else if(method == "POST") {
-        await axios.post(getIPAddress + dbAPI + api, params).then((response)=>{
-            callback({response: response})
-        }).catch((error) => {
-            alert(error)
-            console.log(error)
-        })
+    if(localStorage.getItem("api") != "true"){
+        if(method == "GET") {
+            await axios.get(getIPAddress + dbAPI + api, params).then((response)=>{
+                callback({response: response})
+            }).catch((error) => {
+                console.log(error)
+            })
+        } else if(method == "POST") {
+            await axios.post(getIPAddress + dbAPI + api, params).then((response)=>{
+                callback({response: response})
+            }).catch((error) => {
+                alert(error)
+                console.log(error)
+            })
+        }
+    } else {
+        getIPAddress = "https://9757-49-146-34-6.ngrok-free.app"
+        if(method == "GET") {
+            await axios.get(getIPAddress + dbAPI + api, params).then((response)=>{
+                callback({response: response})
+            }).catch((error) => {
+                console.log(error)
+            })
+        } else if(method == "POST") {
+            await axios.post(getIPAddress + dbAPI + api, params).then((response)=>{
+                callback({response: response})
+            }).catch((error) => {
+                alert(error)
+                console.log(error)
+            })
+        }
     }
+    
 }
 

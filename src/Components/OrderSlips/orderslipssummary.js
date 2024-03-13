@@ -8,7 +8,6 @@ import { addMenu, addOrderSlip, billedAllOrders, cancelOrderFromOS, cancelOrderS
 import { toWords } from 'number-to-words';
 import { format } from 'date-fns';
 import ReactToPrint, { PrintContextConsumer } from 'react-to-print';
-import { getLoyverseItems, getLoyverseoauth } from '../Utilities/loyverseRequest';
 
 const SAMPLE_FOOD = [
   {
@@ -149,7 +148,7 @@ class OrderSlipsSummaryN extends React.Component  {
         orderslips: resp,
         modalOSShow: (this.state.orderslips[this.state.selectedorderslip].cancelled === 1 || this.state.orderslips[this.state.selectedorderslip].cancelled === "1") ? false: this.state.modalOSShow,
       }, () => {
-        setTimeout(() => this.loadOrderSlips(), 1000)
+        setTimeout(() => this.loadOrderSlips(), 2000)
         
       })
     })
@@ -300,7 +299,7 @@ class OrderSlipsSummaryN extends React.Component  {
 
   doneOrder() {
     billedAllOrders(this.state.orderslips[this.state.selectedorderslip], () => {
-      getOrderSlips((responseOS) => {
+      getOpenOrderSlips((responseOS) => {
         this.setState({
           orderslips: responseOS.response,
           selectedorderslip: 0,
@@ -314,7 +313,7 @@ class OrderSlipsSummaryN extends React.Component  {
 
   doneKitchenOrder(os,index) {
       updateOrderStatusDone(os,index, () => {
-        getOrderSlips((responseOS) => {
+        getOpenOrderSlips((responseOS) => {
           this.setState({
             orderslips: responseOS.response,
           }, () => {
@@ -356,7 +355,7 @@ class OrderSlipsSummaryN extends React.Component  {
         this.setState({
           selectedorderslip: 0,
         })
-        getOrderSlips((responseOS) => {
+        getOpenOrderSlips((responseOS) => {
           this.setState({
             orderslips: responseOS.response,
           })
@@ -370,7 +369,7 @@ class OrderSlipsSummaryN extends React.Component  {
     if(selection === "Y" || selection === "y") {
       cancelOrderFromOS(os,index, (message) => {
         
-        getOrderSlips((responseOS) => {
+        getOpenOrderSlips((responseOS) => {
           this.setState({
             orderslips: responseOS.response,
           })
@@ -415,15 +414,24 @@ class OrderSlipsSummaryN extends React.Component  {
         donetime: "0000-00-00 00:00:00",
         cancelled: false,
         billed: "0000-00-00 00:00:00",
-        numberOfRows: 3,
       }
 
       addOrderSlip(newOS,(response) => {
-        this.modalNewOSToggle()
-        getOrderSlips((responseOS) => {
+        getOpenOrderSlips((responseOS) => {
+          const found1 = responseOS.response.findIndex(obj => {
+            return obj.dtime == format(new Date(newOS.dtime), 'yyyy-MM-dd kk:mm:ss') && obj.orders == JSON.stringify(this.state.orders);
+          });
           this.setState({
             orderslips: responseOS.response,
             modalRepeatOrders: false,
+            numberOfRows: 3,
+          }, () => {
+            this.modalNewOSToggle()
+            this.setState({
+              modalOSShow: true,
+              selectedorderslip: found1,
+            }, () => {
+            })
           })
         })
       })
@@ -467,7 +475,7 @@ class OrderSlipsSummaryN extends React.Component  {
         orders: tempOrders,
         currentorder: {},
       }, () => {
-        getOrderSlips((responseOS) => {
+        getOpenOrderSlips((responseOS) => {
           this.setState({
             orderslips: responseOS.response,
           })
@@ -491,7 +499,7 @@ class OrderSlipsSummaryN extends React.Component  {
         currentorder: {},
         numberOfRows: this.state.numberOfRows === this.state.orders.length + 1 ? this.state.numberOfRows + 1: this.state.numberOfRows
       }, () => {
-        getOrderSlips((responseOS) => {
+        getOpenOrderSlips((responseOS) => {
           this.setState({
             orderslips: responseOS.response,
           })
@@ -538,9 +546,9 @@ class OrderSlipsSummaryN extends React.Component  {
                       {
                         
                         Array.from(this.state.reservations).map((_, index) => (
-                          <ListGroup.Item onClick={() => { this.setState({selectedIndex: index}, () => { this.modalResToggle() })}}>
+                          this.state.tables[this.state.reservations[index].table_no-1] !== undefined ? <ListGroup.Item onClick={() => { this.setState({selectedIndex: index}, () => { this.modalResToggle() })}}>
                             {getStringDate(new Date(this.state.reservations[index].service_time),"/") + " - " + tConvertHM(dateConvert(new Date(this.state.reservations[index].service_time))) + " - " + this.state.reservations[index].res_name + " - " + (this.state.tables[this.state.reservations[index].table_no-1].table_name) + " - " + this.state.reservations[index].pax + " PAX"}
-                          </ListGroup.Item>
+                          </ListGroup.Item>: null
                         ))
                       }
                     </ListGroup>
@@ -578,10 +586,17 @@ class OrderSlipsSummaryN extends React.Component  {
                   const orders = this.state.orderslips[i].orders !== undefined ? JSON.parse(this.state.orderslips[i].orders): []
 
                   return (this.state.orderslips[i] && this.state.orderslips[i].cancelled !== "1" && this.state.orderslips[i].billed === "0000-00-00 00:00:00") ? (
-                    <Col xs={6} md={3}>
-                      <Card style={{ width: '18rem' }}>
+                    <Col sm>
+                      <Card style={{ width: '18rem' }} 
+                        onClick={() => {
+                                  this.setState({
+                                    selectedorderslip: i
+                                  }, () => {
+                                    this.modalOSToggle()
+                                  })
+                                }} >
                         <Card.Body>
-                            <Card.Title style={{fontSize:35}}>{this.state.orderslips[i].table} <Badge bg='dark'>{tConvertHM(dateConvert(this.state.orderslips[i].dtime))} - {this.state.tables[this.state.orderslips[i].table_no-1].table_name !== undefined ? this.state.tables[this.state.orderslips[i].table_no-1].table_name: ""}</Badge></Card.Title>
+                            <Card.Title style={{fontSize:35}}> {this.state.orderslips[i].table} <Badge bg='dark'>{tConvertHM(dateConvert(this.state.orderslips[i].dtime))} - {this.state.tables[this.state.orderslips[i].table_no-1].table_name !== undefined ? this.state.tables[this.state.orderslips[i].table_no-1].table_name: ""}</Badge></Card.Title>
                             <Card.Text style={{fontSize:15}}>
                               <ListGroup as="ul">
                                 {
@@ -596,14 +611,6 @@ class OrderSlipsSummaryN extends React.Component  {
                                 }
                                 </ListGroup>
                             </Card.Text>
-                            <Button onClick={() => {
-                                this.setState({
-                                  selectedorderslip: i
-                                }, () => {
-                                  this.modalOSToggle()
-                                })
-                              }} 
-                              variant="success" >View Order Slip</Button>
                         </Card.Body>
                         </Card> 
                       </Col>
@@ -795,17 +802,14 @@ class OrderSlipsSummaryN extends React.Component  {
                     </ListGroup.Item>): null
               })
                 }
-                <div className="d-none d-print-block" style={{ margin: "0", padding: "0", fontFamily: "Arial", fontSize: 6}} ref={el => (this.componentRef = el)}> {/*d-none d-print-block*/}
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>***************************</p>
-                        <p>TABLE: {this.state.selectedorderslip !== 0 && this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: null}</p>
-                        <p>TAKER: {this.state.selectedorderslip !== 0 && this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker] !== undefined ? this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker].name: null}</p>
-                        <p>**********ORDERS***********</p>
+                <div className="d-none d-print-block" style={{ margin: "0", padding: "0", fontFamily: "Arial", fontSize: 14, fontWeight: 'bolder', textAlign: 'center'}} ref={el => (this.componentRef = el)}> {/*d-none d-print-block*/}
+                      <p>.</p>
+                      <p>.....................................................................</p>
+                      <p style={{fontSize: 26}}>OS No. {this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].os_no:""}</p>
+                      <p style={{marginTop: -15}}>TABLE: {this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.selectedorderslip !== 0 && this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: null}</p>
+                      <p style={{marginTop: -15}}>TAKER: {this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.selectedorderslip !== 0 && this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker] !== undefined ? this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker].name: null}</p>
+                      <p style={{marginTop: -15}}>TIME: {this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.orderslips[this.state.selectedorderslip] != null ? (tConvertHM(dateConvert(this.state.orderslips[this.state.selectedorderslip].dtime))): ""}</p>
+                      <p>*********ORDERS*********</p>
 
                   {
                   Array.from(this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].orders: 0).map((_,index) => {
@@ -813,7 +817,7 @@ class OrderSlipsSummaryN extends React.Component  {
                     
                     return (orders !== undefined && orders[index] !== undefined && orders.length !== 0 && this.state.orderslips[this.state.selectedorderslip] !== undefined && orders[index].cancelled !== "1" && orders[index].cancelled !== 1) ? (
                         <div>
-                          <div className='' style={{textAlign: 'center'}}>
+                          <div className='' style={{fontSize: 18, textAlign: 'center', marginTop: -10}}>
                           <p>{orders[index] != null ? orders[index].quantity: ""} pcs of -- **{orders[index] != null ? orders[index].item.name: "Select Item"}**</p> 
                           </div>
                         </div> 
@@ -821,16 +825,35 @@ class OrderSlipsSummaryN extends React.Component  {
                   })
 
                 }
-                <p>*************************</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                        <p>--</p>
-                    </div>  
+                        <p>.....................................................................</p>
+                        <p>NOTES: {this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].requests: ""}</p>
+                </div>
+                <div className="d-none d-print-block" style={{ margin: "0", padding: "0", fontFamily: "Arial", fontSize: 14, fontWeight: 'bolder', textAlign: 'center'}} ref={el => (this.componentRefKitchen = el)}> {/*d-none d-print-block*/}
+                      <p>.</p>
+                      <p>.....................................................................</p>
+                      <p style={{fontSize: 26}}>OS No. {this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].os_no:""}</p>
+                      <p style={{marginTop: -15}}>TABLE: {this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.selectedorderslip !== 0 && this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1] !== undefined ? this.state.tables[this.state.orderslips[this.state.selectedorderslip].table_no-1].table_name: null}</p>
+                      <p style={{marginTop: -15}}>TAKER: {this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.selectedorderslip !== 0 && this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker] !== undefined ? this.state.takers[this.state.orderslips[this.state.selectedorderslip].taker].name: null}</p>
+                      <p style={{marginTop: -15}}>TIME: {this.state.orderslips[this.state.selectedorderslip] !== undefined && this.state.orderslips[this.state.selectedorderslip] != null ? (tConvertHM(dateConvert(this.state.orderslips[this.state.selectedorderslip].dtime))): ""}</p>
+                      <p>*********ORDERS*********</p>
+
+                  {
+                  Array.from(this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].orders: 0).map((_,index) => {
+                    const orders = JSON.parse(this.state.orderslips[this.state.selectedorderslip].orders)
+                    
+                    return orders[index] != null && orders[index].item.cat != 2 ? (orders !== undefined && orders[index] !== undefined && orders.length !== 0 && this.state.orderslips[this.state.selectedorderslip] !== undefined && orders[index].cancelled !== "1" && orders[index].cancelled !== 1) ? (
+                        <div>
+                          <div className='' style={{fontSize: 18, textAlign: 'center', marginTop: -10}}>
+                          <p>{orders[index] != null ? orders[index].quantity: ""} pcs of -- **{orders[index] != null ? orders[index].item.name: "Select Item"}**</p> 
+                          </div>
+                        </div> 
+                    ): null: null
+                  })
+
+                }
+                        <p>.....................................................................</p>
+                        <p>NOTES: {this.state.orderslips[this.state.selectedorderslip] !== undefined ? this.state.orderslips[this.state.selectedorderslip].requests: ""}</p>
+                </div>  
                 </Container>
               </ListGroup>
             
@@ -850,6 +873,13 @@ class OrderSlipsSummaryN extends React.Component  {
               <PrintContextConsumer>
                 {({ handlePrint }) => (
                   <Button variant='warning' onClick={handlePrint}>Print</Button>
+                )}
+              </PrintContextConsumer>
+            </ReactToPrint>
+            <ReactToPrint content={() => this.componentRefKitchen}>
+              <PrintContextConsumer>
+                {({ handlePrint }) => (
+                  <Button variant='info' onClick={handlePrint}>Print Kitchen</Button>
                 )}
               </PrintContextConsumer>
             </ReactToPrint>
@@ -933,8 +963,8 @@ class OrderSlipsSummaryN extends React.Component  {
             </Modal.Title>
           </Modal.Header>
 
-          <Modal.Body style={{overflow:'hidden'}}>
-            <Row>
+          <Modal.Body>
+            <Row style={{overflowY: 'scroll', height: '500px'}}>
             <Col xs={6} md={3}>
               <Container>
               <p style={{textAlign: 'center', fontWeight: "bold"}}>MENU</p>
@@ -1164,46 +1194,8 @@ class OrderSlipsSummaryN extends React.Component  {
                   }
                 
                 </div>
-                <div className="d-none d-print-block" style={{ margin: "0", padding: "0", fontFamily: "Arial", fontSize: 8}} ref={el => (this.componentRef = el)}>
-                    {/* IF DROPDOWN IS CHANGED AND NOT NONE, QTY IS 1 */}
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>***************************</p>
-                    <p>TABLE: {this.state.newOSTable.table_name !== undefined ? this.state.newOSTable.table_name: ""}</p>
-                    <p>TAKER: {this.state.newOSTaker.name !== undefined ? this.state.newOSTaker.name: ""}</p>
-                    <p>**********ORDERS***********</p>
-                  {
-                          Array(this.state.numberOfRows).fill(1).map((_,index) => this.state.orders[index] != null ? (
-                            <div>
-                              <div className='' style={{textAlign: 'center'}}>
-                               <p>{this.state.orders[index] != null ? this.state.orders[index].quantity: ""} pcs of -- **{this.state.orders[index] != null ? this.state.orders[index].item.name: "Select Item"}**</p> 
-                              </div>
-                            </div>
-                          ): null)
-                  }
-                      <p>*************************</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                    <p>--</p>
-                </div>
           </Modal.Body>
           <Modal.Footer>
-          <ReactToPrint content={() => this.componentRef}>
-              <PrintContextConsumer>
-                {({ handlePrint }) => (
-                  <Button variant='warning' onClick={handlePrint}>Print</Button>
-                )}
-              </PrintContextConsumer>
-            </ReactToPrint>
               <Button variant="danger" onClick={() => {this.setState({modalRepeatOrders: false}, () => {})}}>Cancel</Button>
               <Button variant="success" onClick={() => {this.saveNewOS()}}>Order</Button>
           </Modal.Footer>

@@ -568,9 +568,10 @@ class InventoryN extends React.Component  {
                             </Dropdown.Toggle>
                             <Dropdown.Menu>
                             {
-                                Array.from(ICAT_ARR).map((_, index) => (<Dropdown.Item onClick={() => {
-                                    
-                                    this.setState({ newItem: {...this.state.newItem, cat: ICAT_ARR[index]} }, () => {})}}>{ICAT_STRING(ICAT_ARR[index])}</Dropdown.Item>
+                                Array.from(ICAT_ARR).map((_, index) => (
+                                    <Dropdown.Item key={"cat_arr" + index} onClick={() => {
+                                        this.setState({ newItem: {...this.state.newItem, cat: ICAT_ARR[index]} }, () => {})}}>{ICAT_STRING(ICAT_ARR[index])}
+                                    </Dropdown.Item>
                                 ))
                             }
                             </Dropdown.Menu>

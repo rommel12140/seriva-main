@@ -17,7 +17,7 @@ const auth_header = {
 const token = "0f04cfb6dc024e50bf8b89d069e31875"
 const client_id = "9gRIgoO8x_y-Jf1ZoTRF"
 
-const redirect_uri = "https://2e9b-49-146-34-6.ngrok-free.app/"
+const redirect_uri = "https://b9e2-49-146-34-6.ngrok-free.app"
 const state = "O_P4o1RKdcZhLKCDEuQgEUkxLw08ixwPNO4rWKNAtZ-ZTeK7MGbjcw=="
 
 const scope = "ITEMS_READ"
@@ -40,15 +40,7 @@ const config_get = {
 export async function getLoyverseItems(resp,callback) {
     const code = new URLSearchParams(window.location.search).get('code')
     try{
-        const response = await axios.get(LGET_ITEMS,
-            {
-                headers: {
-                  Accept: "application/json",
-                  Authorization: 'Bearer ' + token,
-                  'Content-Type': 'application/json',
-                }
-            }
-            )
+        const response = await axios.get(LGET_ITEMS,config)
         callback({response: response.data})
     } catch(err) {
         console.log(err)
